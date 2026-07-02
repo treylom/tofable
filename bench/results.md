@@ -4,7 +4,14 @@ This is one measurement pass, not a universal constant. Numbers come from a head
 
 ## How scoring works
 
-Each task is scored on six axes, each 0–100, anchored at 0 / 50 / 90:
+Each task is scored on six axes, each 0–100, anchored at four points:
+
+- **0** — not attempted.
+- **50** — attempted, but weak or with only partial evidence.
+- **90** — followed the expected discipline *and* cited the evidence for it.
+- **95+** — exceptional: did the right thing reflexively, without being told to.
+
+The axes:
 
 | Axis | What it measures |
 |---|---|
@@ -42,6 +49,34 @@ Crucially, the judge is given the **tool-use transcript**, so a claim like "I ra
 - **Harness-dependent avg: ~62.** The correct move (outline first / edit-don't-generate / delegate) lives in a written house rule the vanilla run never saw.
 - **General-reasoning avg: ~90.** Same models, no rule needed — the control group.
 - The gap is the recoverable part when the harness is switched on. Cycle 2 re-runs these with the harness loaded to measure the recovery directly.
+
+## Worked examples — how a single score is assembled
+
+The judge scores each axis independently, then the defect grades cap the result. Three anonymized verdicts from this cycle show how the headline number actually comes together.
+
+**A correct answer can still score low.** On the code-fix fixture, one run produced the *right* patch (A4 correctness = 100) yet landed at **80.0**:
+
+| A1 verify | A2 multi-tier | A3 report | A4 correct | A5 complete | SPECIAL | avg |
+|---:|---:|---:|---:|---:|---:|---:|
+| 75 | 65 | 80 | 100 | 90 | 70 | **80.0** |
+
+Defect: `P1 — reproduce → fix → verify was claimed, but no test-run transcript was preserved`. The fix was correct, but the *verification-reflex* (A1) and *multi-tier* (A2) axes are low because the run asserted "I ran the tests" without the transcript showing the command actually run. This is the finding behind the 93→96 note in the top-level README: once transcripts were preserved, the same class of behavior scored higher — the model had done the work; the grader simply couldn't see it and, correctly, refused to credit an unproven claim.
+
+**A clean top score.** On the orchestration fixture, one run scored **96.3** with zero defects:
+
+| A1 | A2 | A3 | A4 | A5 | SPECIAL | avg |
+|---:|---:|---:|---:|---:|---:|---:|
+| 96 | 96 | 95 | 97 | 97 | 97 | **96.3** |
+
+The SPECIAL axis here rewarded a *hard gate* the run placed on a downstream step — refusing to dispatch further work until a blocked prerequisite was resolved — which is the exact discipline that fixture was built to test.
+
+**A trap that caps the score.** On the image-decision fixture, a run scored **57.5** with a `P1`. The SPECIAL axis (did it pick the right tool for the job?) is what sinks it: the run chose a deterministic pixel-overlay on a hand-drawn illustration — precisely the tone-mismatch trap the fixture plants. Strong axes elsewhere can't rescue a run that walked into the fixture's specific trap; enforcing that is exactly what the per-fixture SPECIAL axis is for.
+
+**Reading these three together:**
+
+1. The axis average and the headline number can diverge — a `P0`/`P1` caps the score regardless of how high the other axes are.
+2. A1/A2 depend on the transcript *actually showing* the verification, which is why transcript preservation is part of the instrument, not a nicety (see the code-fix example).
+3. The SPECIAL axis is where each fixture's specific discipline is enforced — it's the difference between "looks like a fine answer" and "did the thing this task was actually about."
 
 ## Threats to validity
 

@@ -56,14 +56,25 @@ fable-work/
 
 **1. Install the hooks into your harness.**
 
-The hooks in `hooks/` are the generalized, harness-agnostic form of the verification lifecycle: risk classification on new requests, a block-list for a small set of destructive local actions, a tool-use evidence ledger, and a capped "don't claim done without proof" stop-gate. Wire them into your coding-agent harness's hook/lifecycle system (see `hooks/` for the per-hook contract and any harness-specific adapter notes). If your harness is Codex specifically, see [Codex integration](#codex-integration) below — you likely want the upstream plugin instead of a manual port.
+`hooks/` is the generalized, harness-agnostic form of the verification lifecycle — three files:
+
+- **`fable_lib.py`** — shared library. A "harness/code surface" heuristic decides which changed files require verification evidence (plain notes/markdown are exempt); an append-only evidence ledger records verifications (kept outside the project tree so it's never committed); and a pilot-gate kill switch (`FABLE_GATE_OFF=1`, or `FABLE_GATE_PILOT=<name>` to scope the gate to one named session before enabling it broadly). The other two hooks import it.
+- **`verify-ledger.py`** — a `PostToolUse(Write|Edit|Bash)` hook. After a tool call, if the action is a real verification (a test run, a scan, a cross-check) it records that as evidence in an ordered ledger. It only records — never blocks. Fail-open (any exception exits cleanly).
+- **`stop-verify-gate.py`** — a `Stop` hook. When the agent tries to end a turn *after* changing a harness/code surface with no successful verification recorded since that change, it emits `{"decision":"block"}` to bounce the stop once and tell the agent to actually verify. Capped at `MAX_STOP_BLOCKS`, passes through the loop-guard, fail-open — a broken hook never wedges a session.
+
+Wire `verify-ledger.py` into your harness's post-tool-use event and `stop-verify-gate.py` into its stop / turn-end event; both import `fable_lib.py`. After wiring, run `hooks/tests/test_gate.py` — it's a runnable spec of the gate's contract. If your harness is Codex specifically, see [Codex integration](#codex-integration) below — you likely want the upstream plugin instead of a manual port.
 
 **2. Run the benchmark.**
 
 ```bash
-cd bench
-# see bench/ for the current runner and task manifest
+# run one fixture against one model, preserving the full tool-use transcript
+bench/run.sh example-codefix <your-model-id> my-run
+
+# artifacts land in $FABLE_BENCH_RUNS_DIR (default ~/.fable-bench/runs/):
+#   work/  transcript.jsonl  raw-output.json  meta.json
 ```
+
+Then grade the run with a judge — ideally a **different model family** than the one that produced it — feeding it `bench/rubric.md` + the fixture's answer key + the run's transcript, via the template in `bench/judge-prompt.md`. Full runner options, how scoring is assembled, and the fixture-authoring / runtime-trap pattern are in [`bench/README.md`](bench/README.md) and [`bench/results.md`](bench/results.md).
 
 The benchmark runs the same task set with the harness off (vanilla) and on, and reports the harness-dependent vs. general-reasoning split described above. Use it to check whether *your* harness install actually recovers the gap on *your* base model — the numbers above are one measurement, not a universal constant.
 

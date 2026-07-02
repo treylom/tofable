@@ -53,9 +53,25 @@ fable-work/
 
 ## 빠른 시작
 
-**1. 훅을 당신의 하네스에 설치.** `hooks/`는 검증 라이프사이클의 일반화된 형태다 — 새 요청의 위험 분류, 소수의 파괴적 로컬 동작 차단, 도구 사용 증거 원장, "증거 없이 완료 주장 금지" 스톱게이트(상한 2회). 당신 코딩 에이전트 하네스의 훅 시스템에 배선하라. Codex라면 아래 [Codex 통합](#codex-통합)의 upstream 플러그인을 권장.
+**1. 훅을 당신의 하네스에 설치.** `hooks/`는 검증 라이프사이클의 일반화된 형태 — 세 파일이다:
 
-**2. 벤치마크 실행.** `bench/`에서 같은 과제셋을 하네스 off(맨몸)/on으로 돌려 위의 이분(二分)을 보고한다. *당신의* 하네스 설치가 *당신의* 베이스 모델에서 실제로 격차를 회복하는지 확인하는 용도 — 위 수치는 하나의 측정이지 보편 상수가 아니다.
+- **`fable_lib.py`** — 공유 라이브러리. "하네스/코드 표면" 휴리스틱이 어느 변경 파일에 검증 증거가 필요한지 판정하고(일반 노트·마크다운은 면제), 추가전용 증거 원장이 검증을 기록하며(프로젝트 트리 밖에 둬서 커밋 안 됨), 파일럿 게이트 킬스위치(`FABLE_GATE_OFF=1`, 또는 `FABLE_GATE_PILOT=<name>`으로 한 세션에만 먼저 적용). 나머지 두 훅이 이걸 import.
+- **`verify-ledger.py`** — `PostToolUse(Write|Edit|Bash)` 훅. 도구 호출 후 그 동작이 실제 검증(테스트 실행·스캔·교차확인)이면 순서 있는 원장에 증거로 기록. 기록만 하고 차단은 안 함. fail-open.
+- **`stop-verify-gate.py`** — `Stop` 훅. 하네스/코드 표면을 바꾼 *뒤* 그 변경 이후 성공한 검증 기록이 없는데 턴을 끝내려 하면 `{"decision":"block"}`을 내보내 Stop을 한 번 되돌리고 실제로 검증하라고 알린다. `MAX_STOP_BLOCKS` 상한·루프가드 통과·fail-open — 깨진 훅이 세션을 막는 일은 없다.
+
+`verify-ledger.py`는 하네스의 post-tool-use 이벤트에, `stop-verify-gate.py`는 stop/turn-end 이벤트에 배선(둘 다 `fable_lib.py` import). 배선 후 `hooks/tests/test_gate.py` 실행 — 게이트 계약의 실행 가능한 명세다. Codex라면 아래 [Codex 통합](#codex-통합)의 upstream 플러그인을 권장.
+
+**2. 벤치마크 실행.**
+
+```bash
+# 한 fixture를 한 모델로 실행, 전체 도구사용 transcript 보존
+bench/run.sh example-codefix <your-model-id> my-run
+# 산출물 → $FABLE_BENCH_RUNS_DIR (기본 ~/.fable-bench/runs/): work/ transcript.jsonl raw-output.json meta.json
+```
+
+그다음 심판(가능하면 **다른 모델 패밀리**)에게 `bench/rubric.md` + fixture 답안키 + 실행 transcript를 `bench/judge-prompt.md` 템플릿으로 채점시킨다. 러너 옵션·채점 조립 방식·fixture 작성/런타임 트랩 패턴은 [`bench/README.md`](bench/README.md)·[`bench/results.md`](bench/results.md)에 있다.
+
+`bench/`에서 같은 과제셋을 하네스 off(맨몸)/on으로 돌려 위의 이분(二分)을 보고한다. *당신의* 하네스 설치가 *당신의* 베이스 모델에서 실제로 격차를 회복하는지 확인하는 용도 — 위 수치는 하나의 측정이지 보편 상수가 아니다.
 
 ## Codex 통합
 
