@@ -34,7 +34,7 @@ bench/
 ## Running a fixture
 
 ```bash
-bench/run.sh example-codefix claude-sonnet-4-5 my-tag
+bench/run.sh example-codefix <your-model-id> my-tag
 ```
 
 This writes results to `$FABLE_BENCH_RUNS_DIR/<timestamp>-example-codefix-my-tag/`

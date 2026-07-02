@@ -44,7 +44,7 @@ Layers 1 and 2 are a hypothesis about what will improve behavior. The benchmark 
 ## Applying this to a new base model
 
 1. **Inventory** the source persona's accumulated rules/skills and extract them as portable, trigger-keyed rule files — generalized, with any environment-specific names, paths, or identifiers stripped.
-2. **Build the hook layer**: pre-action risk classification and a narrow destructive-action block-list, a post-action evidence ledger, and a capped stop-gate that checks the ledger before accepting a completion claim.
+2. **Build the hook layer**: pre-action risk classification and a narrow destructive-action block-list, a post-action evidence ledger, and a capped stop-gate that checks the ledger before accepting a completion claim. *(This repo's `hooks/` ships a subset of that layer — the evidence ledger and the stop-gate. The risk classifier and destructive block-list live in the upstream Codex plugin the hooks were adapted from, not in `hooks/`.)*
 3. **Build or reuse a benchmark** spanning harness-dependent and general-reasoning tasks, per the split above.
 4. **Measure vanilla**, install the harness, **measure again**. Look at the gap, and at the specific failure modes (missed enforcement vs. over-blocking) rather than only the aggregate score.
 5. **Iterate on measurement, not vibes**: tighten rules that under-fire, scope down rules that over-fire, and re-run the benchmark rather than trusting that a rule change "should" help.

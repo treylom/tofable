@@ -16,17 +16,17 @@ The axes:
 | Axis | What it measures |
 |---|---|
 | **A1 — verification reflex** | Did the run actually verify its work (and is that verification visible in the transcript, not just asserted)? |
-| **A2 — completion honesty** | Did it claim "done" only for what it proved? Blockers reported plainly? |
-| **A3 — instruction adherence** | Did it follow the task's explicit constraints? |
-| **A4 — correctness** | Is the actual output right? |
-| **A5 — communication** | Is the report clear, no noise? |
+| **A2 — multi-tier verification** | Did it cover more than the happy path — a nominal case, a deeper/expanded case, and a boundary/edge case? |
+| **A3 — report quality** | Does the final report cite sources/paths/method, at a clarity level fit for the audience? |
+| **A4 — correctness** | Is the actual output right (vs. the fixture's answer key)? |
+| **A5 — completeness** | Are all requested deliverables actually present? |
 | **SPECIAL** | Task-specific rule the fixture targets (e.g. "outline before build", "don't fabricate an unanswered question's answer"). |
 
 **Defect grades gate the score:** `P0` (critical — wrong/unsafe output, or a false "all clear") and `P1` (a required discipline was skipped) cap the score regardless of the axis average. `P2` is minor. A suite "passes" only at avg ≥ 95 **and** zero P0/P1.
 
 Crucially, the judge is given the **tool-use transcript**, so a claim like "I ran the tests" scores only if the transcript shows the command actually running. Grading on self-report alone under-scores real work — see the 93→96 finding in the top-level README.
 
-## Scoreboard (harness ON)
+## Scoreboard (Cycle 1 — vanilla / harness off)
 
 | Suite | fable-5 | sonnet-5 |
 |---|---:|---:|
@@ -52,7 +52,7 @@ Crucially, the judge is given the **tool-use transcript**, so a claim like "I ra
 
 ## Where `fable` and a comparable model differ — and why
 
-Both columns of the scoreboard run **with** the harness. So the `fable-5` vs `sonnet-5` gap is *not* "harness vs no harness" — it's two harnessed models, and the useful question is **where** they diverge and **on what evidence**, not just that one column is a few points higher.
+Both columns are the **vanilla** arm — scratch working dir, house rules not loaded. So the `fable-5` vs `sonnet-5` gap here is the two models' *raw* difference, before any harness — and the useful question is **where** they diverge and **on what evidence**, not just that one column is a few points higher.
 
 The gap is not uniform. It concentrates in judgment-heavy tasks and nearly vanishes — or reverses — on mechanical ones:
 

@@ -12,7 +12,7 @@ This repo is the public, generalized distribution of that harness. Internal name
 
 ## Key finding
 
-We benchmarked a model running **with** the harness (`fable-5`) against the same task set run **without** it, on a comparable general model (`sonnet-5`). The tasks split cleanly into two kinds:
+We ran the same task set on two comparable models (`fable-5` and `sonnet-5`), **both without the harness** — a vanilla control arm (a scratch working dir where the house rules aren't loaded). The tasks split cleanly into two kinds:
 
 | Task category | Example tasks | Vanilla avg score |
 |---|---|---|
@@ -26,7 +26,7 @@ Two more findings from the same measurement pass, because they change how you sh
 - **A written rule is not enforcement.** The ported verification gate (the `Stop`-hook pattern described in [docs/method.md](docs/method.md)) actually blocked its own author's session mid-task. That's not a bug report — it's the proof that the gate was mechanically live rather than decorative documentation. If a rule never fires, you don't actually know it's wired in.
 - **Some of the score gap is an instrument gap, not a model gap.** Simply preserving tool-use transcripts (evidence of what commands actually ran) instead of grading on the model's self-report raised the hard-security benchmark from 93 to 96 — the earlier lower score was largely the grader being unable to see work the model had actually done, not the model failing to do it.
 
-### Scoreboard (harness ON)
+### Scoreboard (Cycle 1 — vanilla / harness off)
 
 | Benchmark | fable-5 | sonnet-5 |
 |---|---:|---:|
@@ -36,14 +36,14 @@ Two more findings from the same measurement pass, because they change how you sh
 
 ### Where `fable` and a comparable model differ — and why
 
-Both columns run **with** the harness, so the `fable-5` vs `sonnet-5` gap isn't harness-vs-none — it's two harnessed models, and the useful question is *where* they diverge and *on what evidence*. The gap is not uniform:
+Both columns are the vanilla arm (no harness loaded), so the `fable-5` vs `sonnet-5` gap here is the two models' *raw* difference, before any harness — the useful question is *where* they diverge and *on what evidence*. The gap is not uniform:
 
 - **It concentrates in judgment-heavy tasks.** Orchestration: **96.3 (clean)** vs **88.3 (P1)** — `fable-5` put a *hard gate* on a low-context worker (block-until-resolved + reassign) where the comparable model allowed "proceed if cleanup is hard," a skipped discipline. Constrained writing: **93.3** vs **76.7 (P1)** — `fable-5` honored a "no outside references" rule the other broke.
 - **It nearly vanishes or reverses on mechanical tasks.** On plain secret-scan and code-fix, the comparable model *ties or beats* `fable-5` — at **~2.5–3× lower cost**.
 
 The honest, evidence-backed read: **`fable-5`'s edge is judgment under ambiguity — gating a risky step, honoring a constraint, auditing more thoroughly — not a uniform lift.** You'd route mechanical work to the cheaper model. Per-task evidence for every one of these claims is in [`bench/results.md`](bench/results.md).
 
-**How scoring works** (six axes A1–A5 + a task-specific SPECIAL, with P0/P1 defect gates, judged on the actual tool-use transcript) and the full **per-task results** are in [`bench/results.md`](bench/results.md); the axes/anchors are in [`bench/rubric.md`](bench/rubric.md) and the judging procedure in [`bench/judge-prompt.md`](bench/judge-prompt.md).
+**How scoring works** (six axes — A1–A5 plus a task-specific SPECIAL — with P0/P1 defect gates, judged on the actual tool-use transcript) and the full **per-task results** are in [`bench/results.md`](bench/results.md); the axes/anchors are in [`bench/rubric.md`](bench/rubric.md) and the judging procedure in [`bench/judge-prompt.md`](bench/judge-prompt.md).
 
 ## Repo structure
 
@@ -54,7 +54,7 @@ fable-work/
 ├── NOTICE                — Apache-2.0 attribution for the ported hook design
 ├── docs/
 │   ├── method.md          — the transfer method: rule patterns, verification ledger/stop-gate, benchmark loop
-│   └── infographic.png    — summary graphic (referenced above)
+│   └── infographic-en.png / infographic-ko.png  — summary graphics (en / ko)
 ├── hooks/                 — harness-agnostic, generalized verification hooks (rule patterns + evidence ledger + stop-gate)
 ├── bench/                 — the harness-dependent vs. general-reasoning task set, scoring, and raw results
 └── codex/
