@@ -1,6 +1,6 @@
 # Benchmark results & scoring (Cycle 1, 2026-07-02)
 
-This is one measurement pass, not a universal constant. Numbers come from a headless run of each task with tool-use transcripts preserved, judged by a cross-family judge (a GPT-class model grading the Claude-class runs). See [rubric.md](rubric.md) for the axes and [judge-prompt.md](judge-prompt.md) for the judging procedure.
+This is one measurement pass, not a universal constant. Numbers come from a headless run of each task with tool-use transcripts preserved, judged by a cross-family judge (a different model family from the one that produced the run). See [rubric.md](rubric.md) for the axes and [judge-prompt.md](judge-prompt.md) for the judging procedure.
 
 ## How scoring works
 

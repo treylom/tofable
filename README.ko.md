@@ -4,7 +4,7 @@
 
 > 🌐 English: **[README.md](README.md)**
 
-`fable-5`는 실제 모델이다 — Anthropic의 Fable 5(`claude-fable-5`), Claude 5 패밀리. 단 며칠간의 실사용만으로도 이 모델과 손발 맞춘 방식이 제법 좋은 *작업 방식*으로 자리 잡았다: 목표를 정직하게 쪼개고, "완료"라 말하기 전에 검증하고, 막힌 데를 돌려 말하지 않고 그대로 보고했다. 그 방식의 상당 부분은 모델의 가중치(weight)에 있지 않다 — 모델 주변에 쌓인 습관과 스캐폴딩(scaffolding, 모델을 둘러싼 뼈대 구조물)에 산다. `fable-work`는 그 스캐폴딩을 **외부에 인코딩**하려는 시도다 — 이식 가능한 하네스(상황별 규칙 파일 + 기계적 검증 게이트)로 만들고, 하네스를 켰을 때 그 일하는 방식이 다른 — 대개 더 저렴한 — 모델(예: `sonnet` 급)에 **얼마나 실제로 이전되는지 측정**한다.
+`fable-5`는 우리가 좋은 세션에 즉흥적으로 붙인 별명이 아니라, 접근이 제한된 특정 모델이다. 단 며칠간의 실사용만으로도 이 모델과 손발 맞춘 방식이 제법 좋은 *작업 방식*으로 자리 잡았다: 목표를 정직하게 쪼개고, "완료"라 말하기 전에 검증하고, 막힌 데를 돌려 말하지 않고 그대로 보고했다. 그 방식의 상당 부분은 모델의 가중치(weight)에 있지 않다 — 모델 주변에 쌓인 습관과 스캐폴딩(scaffolding, 모델을 둘러싼 뼈대 구조물)에 산다. `fable-work`는 그 스캐폴딩을 **외부에 인코딩**하려는 시도다 — 이식 가능한 하네스(상황별 규칙 파일 + 기계적 검증 게이트)로 만들고, 하네스를 켰을 때 그 일하는 방식이 다른 — 대개 더 저렴한 — 모델(예: `sonnet` 급)에 **얼마나 실제로 이전되는지 측정**한다.
 
 이 레포는 그 하네스의 공개·일반화 배포판이다. 개발 환경의 내부 이름·경로·식별자는 제거했고, 로직과 측정 방법론은 그대로다.
 
@@ -68,7 +68,7 @@ fable-work/
 - **`verify-ledger.py`** — `PostToolUse(Write|Edit|Bash)` 훅. 도구 호출 후 그 동작이 실제 검증(테스트 실행·스캔·교차확인)이면 순서 있는 원장에 증거로 기록. 기록만 하고 차단은 안 함. fail-open.
 - **`stop-verify-gate.py`** — `Stop` 훅. 하네스/코드 표면을 바꾼 *뒤* 그 변경 이후 성공한 검증 기록이 없는데 턴을 끝내려 하면 `{"decision":"block"}`을 내보내 Stop을 한 번 되돌리고 실제로 검증하라고 알린다. `MAX_STOP_BLOCKS` 상한·루프가드 통과·fail-open — 깨진 훅이 세션을 막는 일은 없다.
 
-`verify-ledger.py`는 하네스의 post-tool-use 이벤트에, `stop-verify-gate.py`는 stop/turn-end 이벤트에 배선(둘 다 `fable_lib.py` import). 배선 후 `hooks/tests/test_gate.py` 실행 — 게이트 계약의 실행 가능한 명세다. Codex라면 아래 [Codex 통합](#codex-통합)의 upstream 플러그인을 권장.
+`verify-ledger.py`는 하네스의 post-tool-use 이벤트에, `stop-verify-gate.py`는 stop/turn-end 이벤트에 배선(둘 다 `fable_lib.py` import). **[`hooks/README.md`](hooks/README.md)에 Claude Code 단계별 설치가 있다** — 정확한 `settings.json` 스니펫, 게이트가 살아있는지 확인하는 법, 끄는 법(kill switch). 배선 후 `hooks/tests/test_gate.py` 실행 — 게이트 계약의 실행 가능한 명세다. Codex라면 아래 [Codex 통합](#codex-통합)의 upstream 플러그인을 권장.
 
 **2. 벤치마크 실행.**
 
@@ -85,6 +85,10 @@ bench/run.sh example-codefix <your-model-id> my-run
 ## Codex 통합
 
 Codex라면, 이 프로젝트의 훅 설계가 차용한 upstream 플러그인 — `fable-ish-codex` (Apache-2.0, Pandoll-AI) — 을 직접 설치하는 편이 낫다. [`codex/README.md`](codex/README.md) 참조.
+
+## 방법
+
+이전 방법의 전체 서술 — 규칙 패턴 설계, 검증 원장/스톱게이트 메커니즘, 이전을 측정하는 벤치 루프 — 는 [`docs/method.md`](docs/method.md)에 있다.
 
 ## 라이선스
 
