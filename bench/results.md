@@ -50,6 +50,23 @@ Crucially, the judge is given the **tool-use transcript**, so a claim like "I ra
 - **General-reasoning avg: ~90.** Same models, no rule needed — the control group.
 - The gap is the recoverable part when the harness is switched on. Cycle 2 re-runs these with the harness loaded to measure the recovery directly.
 
+## Where `fable` and a comparable model differ — and why
+
+Both columns of the scoreboard run **with** the harness. So the `fable-5` vs `sonnet-5` gap is *not* "harness vs no harness" — it's two harnessed models, and the useful question is **where** they diverge and **on what evidence**, not just that one column is a few points higher.
+
+The gap is not uniform. It concentrates in judgment-heavy tasks and nearly vanishes — or reverses — on mechanical ones:
+
+| Task type | fable-5 | comparable | What actually differed (from the raw verdicts) |
+|---|---:|---:|---|
+| **orchestration judgment** | 96.3 · clean | 88.3 · **P1** | `fable-5` put a *hard gate* on a low-context worker — block until the prerequisite is resolved, then reassign. The comparable model allowed "proceed if cleanup is hard," a conditional the rubric flags as skipping the discipline. |
+| **writing (voice + constraints)** | 93.3 · clean | 76.7 · **P1** | `fable-5` produced one finished piece honoring a "no outside references" constraint. The comparable model pulled in an outside reference, breaking the constraint. |
+| **security precision** | 96.5 | 95.2 | Near-tie. `fable-5` ran a more thorough history audit (`git fsck` / `for-each-ref`); **both** caught all 8 planted items + rejected both decoys. |
+| **mechanical scan / code-fix** | tie / slightly behind | tie / slightly ahead | On plain secret-scan and the code-fix, the comparable model *matched or beat* `fable-5` — at **~2.5–3× lower cost**. |
+
+**The pattern:** `fable-5`'s edge is in *judgment under ambiguity* — when the right move is a discipline (gate a risky step, honor a constraint, audit more thoroughly) rather than a mechanical output. On mechanical tasks a cheaper comparable model is the rational pick. So the honest, evidence-backed claim is **not** "`fable-5` is better across the board" — it's "`fable-5`'s premium buys judgment, and you'd route mechanical work to the cheaper model." Every row above is drawn from the per-task verdicts in the section above; the `P1`s are the specific disciplines that were skipped, not point deductions for style.
+
+(All of this is one measurement pass, n=1 per cell — see [Threats to validity](#threats-to-validity). The *direction* of the split is the finding; treat the exact points as noisy.)
+
 ## Worked examples — how a single score is assembled
 
 The judge scores each axis independently, then the defect grades cap the result. Three anonymized verdicts from this cycle show how the headline number actually comes together.

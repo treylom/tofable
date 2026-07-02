@@ -34,6 +34,15 @@ Two more findings from the same measurement pass, because they change how you sh
 | hard-security | 96.5 | 95.2 |
 | real-work-7 | 79.3 | 75.3 |
 
+### Where `fable` and a comparable model differ — and why
+
+Both columns run **with** the harness, so the `fable-5` vs `sonnet-5` gap isn't harness-vs-none — it's two harnessed models, and the useful question is *where* they diverge and *on what evidence*. The gap is not uniform:
+
+- **It concentrates in judgment-heavy tasks.** Orchestration: **96.3 (clean)** vs **88.3 (P1)** — `fable-5` put a *hard gate* on a low-context worker (block-until-resolved + reassign) where the comparable model allowed "proceed if cleanup is hard," a skipped discipline. Constrained writing: **93.3** vs **76.7 (P1)** — `fable-5` honored a "no outside references" rule the other broke.
+- **It nearly vanishes or reverses on mechanical tasks.** On plain secret-scan and code-fix, the comparable model *ties or beats* `fable-5` — at **~2.5–3× lower cost**.
+
+The honest, evidence-backed read: **`fable-5`'s edge is judgment under ambiguity — gating a risky step, honoring a constraint, auditing more thoroughly — not a uniform lift.** You'd route mechanical work to the cheaper model. Per-task evidence for every one of these claims is in [`bench/results.md`](bench/results.md).
+
 **How scoring works** (six axes A1–A5 + a task-specific SPECIAL, with P0/P1 defect gates, judged on the actual tool-use transcript) and the full **per-task results** are in [`bench/results.md`](bench/results.md); the axes/anchors are in [`bench/rubric.md`](bench/rubric.md) and the judging procedure in [`bench/judge-prompt.md`](bench/judge-prompt.md).
 
 ## Repo structure
