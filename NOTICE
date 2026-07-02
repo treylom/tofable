@@ -1,0 +1,31 @@
+fable-work
+Copyright 2026 fable-work contributors
+
+This project includes design and code adapted from:
+
+    fable-ish Codex
+    Copyright 2026 Pandoll-AI
+    Licensed under the Apache License, Version 2.0
+    https://github.com/Pandoll-AI/fable-ish-codex
+
+Specifically, the hook lifecycle pattern used under `hooks/` in this
+repository — request-risk classification, a pre-tool-use block-list for a
+small set of destructive local actions, a post-tool-use tool-use evidence
+ledger, and a capped stop-gate that requires verification evidence before a
+turn can be reported as complete — is adapted from fable-ish Codex's hook
+design (`hooks/user_prompt_submit.py`, `hooks/pre_tool_use.py`,
+`hooks/post_tool_use.py`, `hooks/stop_gate.py` in the upstream repository).
+
+A copy of the Apache License, Version 2.0 is available at:
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Per the terms of the Apache License, Version 2.0, files derived from
+fable-ish Codex retain the copyright and license notices required by that
+license, and files modified from the upstream source are noted as changed
+in this repository's history. If you redistribute a modified version of the
+adapted portions, please keep attribution to fable-ish Codex and Pandoll-AI,
+as requested by the upstream project's own NOTICE file.
+
+This NOTICE file is provided for informational purposes only and does not
+modify the license terms of any individual file in this repository.

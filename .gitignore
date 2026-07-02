@@ -1,0 +1,4 @@
+# fable-bench local runs
+.fable-bench/
+__pycache__/
+*.pyc
