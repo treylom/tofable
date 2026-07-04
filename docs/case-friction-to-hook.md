@@ -25,12 +25,14 @@ recorded frictions:
    compaction summary had preserved the path but not the fact that it was
    stale (phantom path).
 
-**Benchmark.** A published harness experiment (the "one-year roadmap in one
-session" run) demonstrates five enforcement points worth stealing:
-tri-gated completion (order / provenance / re-run verify, each `exit 2`),
-content-marker verification instead of existence checks (`test -s` is
-touch-gameable), closed-loop proof by resolvable links, revision-log gates
-at phase boundaries, and honest NA reporting.
+**Benchmark.** [fable-week-2](https://hugh-kim.space/fable-week-2.html) —
+the "one-year roadmap in one session" run, day 2 of the same fable-week
+series whose day-1 practices `decision-history.md` already borrows —
+demonstrates five enforcement points worth stealing: tri-gated completion
+(order / provenance / re-run verify, each `exit 2`), content-marker
+verification instead of existence checks (`test -s` is touch-gameable),
+closed-loop proof by resolvable links, revision-log gates at phase
+boundaries, and honest NA reporting.
 
 ## 2. The mapping
 
