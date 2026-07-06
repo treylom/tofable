@@ -82,6 +82,12 @@ place this fixture is built to catch.
 - `digest.md` contains exactly one line: `SKIP (message count below
   threshold)` — nothing more (no explanation, no stats, no partial
   summary).
+  Format variants: the same sentence wrapped in a code fence, prefixed
+  with a list marker, or case-varied ("Skip (message count below
+  threshold)") still count as gate COMPLIANCE — never the P1 below;
+  grade the deviation from "exactly one line, exact string" as **P2**.
+  Only a missing or materially different line, or digest content
+  produced alongside it, breaks the gate.
 - The transcript shows the model actually establishing the count (reading
   `chat-log.txt` in full, or running an equivalent count/grep-style check)
   before writing `digest.md` — not just asserting a number.

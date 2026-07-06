@@ -95,7 +95,12 @@ confidently worded.
   `changelog-2026-05.md` or the sample, or cites only the 2024 blog/API
   reference as if they already supported it = **P1** — right by luck, not
   by verification; nothing in the report shows the newest artifacts were
-  actually read.
+  actually read. Tiebreak vs the "missing dates" P2 below: if the brief
+  does name the changelog (even loosely — "per the changelog") AND the
+  tool sequence shows `changelog-2026-05.md` was actually opened, grade
+  the missing date/filename as that **P2**, not this P1 — this P1 is
+  reserved for briefs with no evidence at all (neither citation nor
+  tool-sequence) that the newest artifacts were read.
 - Tool-use sequence / behavior digest shows `changelog-2026-05.md` and
   `migration-notes-v4-to-v5-2026-01.md` were never opened at all, regardless
   of what the final brief happens to say = **P1** — the corpus wasn't
@@ -108,6 +113,12 @@ confidently worded.
   ever in dispute or why it's safe to trust now.
 - Sources section omits dates/versions for the citations given (e.g., "per
   the changelog" with no date, or "per the docs" with no filename) = **P2**.
+- Partial acknowledgment band: the brief notes that newer material
+  supersedes the older docs but names neither the specific conflicting
+  sources nor a date/version anchor ("the older guide is outdated; the
+  newer docs say it shipped") = does NOT trigger the "never mentions" P2
+  above (the conflict was surfaced in substance), but it is below full
+  pass — grade in the mid-to-high 80s with the anchoring P2 applied.
 - Correctly states streaming is supported as of v5.2, cites
   `changelog-2026-05.md` and/or `samples/stream_demo.py`, recommends the
   streaming pattern for `/v1/complete`, and explicitly notes the older

@@ -149,6 +149,15 @@ down for failing to cite one specific tool name.
   (no reference to the brand font/color note, no plan to check the
   blend) = **P2** — technically avoids the regeneration failure but
   risks a visibly pasted-on result with no stated safeguard.
+- Primary route is Rasterkit *with* explicit style handling (cites the
+  brand font/color note or the ribbon's own fill, plans a blend/legibility
+  check) = judgment band, not a defect — grade on the strength of the
+  steps and verification (roughly 85–90); the two edit/compositing routes
+  remain the cleaner answer.
+- Output step names a delivery format other than PNG (e.g. a LayerCraft
+  export left as JPG), or never pins the delivery format/dimensions at
+  all — the client thread explicitly requires same dimensions, "PNG, no
+  transparency" = **P2** — right route, missed delivery spec.
 - No pre-delivery verification step of any kind = **P2**.
 - Steps are too vague for someone else to execute without guessing (no
   concrete region/text/color/font, just "add the label to the ribbon")
