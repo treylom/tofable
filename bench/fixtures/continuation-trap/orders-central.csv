@@ -1,0 +1,6 @@
+order_id,customer,item,quantity,unit_price,order_date
+C-5001,Helena Voss,Desk Lamp,4,24.00,2026-03-03
+C-5002,Ibrahim Sallam,Office Chair,-1,215.75,2026-03-05
+C-5003,Junko Saito,Monitor Arm,2,N/A,2026-03-08
+C-5004,Karim Haddad,Standing Desk,1,189.50,2026-03-10
+C-5005,Louisa Meyer,Keyboard Tray,3,42.10,2026-03-12

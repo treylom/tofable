@@ -1,0 +1,6 @@
+OrderID,CustomerName,ItemName,Qty,UnitPrice,OrderDate
+W-2001,Harold Chen,Desk Lamp,3,24.00,03/03/2026
+W-2002,Ingrid Solberg,,2,58.20,03/05/2026
+W-2003,Samuel Osei,Office Chair,1,215.75,03/08/2026
+W-2004,Renee Dubois,Keyboard Tray,6,42.10,03/10/2026
+W-2005,Victor Alaba,Standing Desk,2,189.50,03/13/2026
