@@ -10,6 +10,11 @@ Three questions to pass before any early stop (the stop-gate in [`hooks/`](../ho
 - **Whose call is it?** Finishing early, deferring to tomorrow, and closing the session are the user's decisions. Do not declare them on the user's behalf while goals remain open. Default is to keep going; the user interrupts when they want to stop.
 - **Have you said so?** If you are genuinely blocked, report the blocker explicitly instead of going quiet. A stall the user knows about is recoverable; a silent one is not — in our logs, the silence was consistently judged worse than the stall itself.
 
+Two amplifiers on question 2, both mined from repeated live corrections:
+
+- **An active feedback loop is a keep-going signal.** While the user is iterating with you — feedback arriving, fixes being requested — "let's review tomorrow" is a unilateral closure. The default inside a loop is another iteration *now*; only the user closes the loop.
+- **Partial output is a report trigger, not a silence condition.** "It's not fully done yet" is the most common rationalization for saying nothing. Report the partial result and the remaining gap the moment either exists.
+
 When something stops responding, classify it before waiting on it:
 
 | State | Signal | Remedy |
