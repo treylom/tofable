@@ -28,8 +28,9 @@ ARM_MODEL = {"opus-van": "claude-opus-4-8", "opus-tof": "claude-opus-4-8",
              "opus-tof2": "claude-opus-4-8",
              "son-van": "claude-sonnet-5", "son-tof": "claude-sonnet-5",
              "son-tof2": "claude-sonnet-5", "son-tofc": "claude-sonnet-5"}
-# Defect-integrated score (재경님 2026-07-07 02:07 — "치명/중대 결함까지 점수표로"):
-# per fixture×arm cell, composite = seed-mean − P0_PENALTY·p0 − P1_PENALTY·p1
+# Defect-integrated score: fold P0/P1 into the number itself so defects
+# can't hide behind style points. Per fixture×arm cell,
+# composite = seed-mean − P0_PENALTY·p0 − P1_PENALTY·p1
 # (defect counts = max across seeds, same rule the flags use). Weights chosen
 # so one P0 outweighs any style-point spread (~judge noise band) and can't be
 # washed out by a pretty report; sensitivity to ±50% weight changes is worth
