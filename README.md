@@ -55,6 +55,34 @@ The honest, evidence-backed read: **`fable-5`'s edge is judgment under ambiguity
 
 **How scoring works** (six axes — A1–A5 plus a task-specific SPECIAL — with P0/P1 defect gates, judged on the actual tool-use transcript) and the full **per-task results** are in [`bench/results.md`](bench/results.md); the axes/anchors are in [`bench/rubric.md`](bench/rubric.md) and the judging procedure in [`bench/judge-prompt.md`](bench/judge-prompt.md).
 
+## The gates — and what they measurably change
+
+The single most reproduced finding across our measurement cycles: **a written rule is not enforcement.** Models (especially cheaper ones) skim past prose rules, but they cannot skim past a hook that bounces their Stop. So the harness's active ingredient is the gate set:
+
+| Gate | Fires | Catches |
+|---|---|---|
+| `verify-ledger` | after every tool call | nothing — it *records* what changed and what was verified (the evidence the other gates judge) |
+| `stop-verify-gate` | on Stop | code/config changed, but no successful verification ran *after* the change |
+| — absence check | on Stop | "X doesn't exist" claimed after consulting git shallowly (no `--all` / `branch -a` boundary expansion) |
+| — claim-evidence check | on Stop | a precise count ("83 messages") or an identity claim ("byte-for-byte identical") with no mechanical check (`wc -l`, `grep -c`, `diff`, `shasum`) in the tool log |
+| `continuation-gate` | on Stop | deferral language ("I'll continue tomorrow") while work remains and nothing is user-blocked |
+| `surfacing-gate` | before Bash | destructive commands (recursive rm, force-push, hard reset) about to run without being surfaced in the response first |
+
+Every gate bounces **once**, always has a path through (show the evidence, or state explicitly why it's impossible), and fails open — a broken gate never wedges a session. Nothing is hard-forbidden by design: gates demand evidence, they don't ban actions. Kill switch: `FABLE_GATE_OFF=1`.
+
+**Measured effect** (14 fixtures × 2–3 seeds per arm; *composite* = avg − 15·P0 − 5·P1 per fixture cell, so defects can't hide behind style points):
+
+| Arm | avg | composite | P0 | P1 |
+|---|---:|---:|---:|---:|
+| `sonnet-5` vanilla | 89.1 | 86.2 | 1 | 5 |
+| `sonnet-5` + tofable | **90.7** | **89.6** | **0** | **3** |
+| `opus`-class vanilla | 90.0 | 88.5 | 0 | 4 |
+| `opus`-class + tofable | 90.8 | 89.7 | 0 | 3 |
+
+Fixture-level, the gains sit exactly where a gate was added: the absence-claim trap went **75.6 → 96.3** (absence check), the counting trap **87.9 → 94.2** (claim-evidence check), and the vanilla arm's one fabrication-class P0 (inventing figures for a public post) disappeared under the harness. On the stronger model the same gates are a no-op (89.7 ≈ 90.0 without them) — models that already have the habit pass through silently; models that don't get corrected. That asymmetry is the design intent, and it produces the headline: **the harnessed cheaper model lands within 0.1 composite of the harnessed stronger one, at roughly three-quarters of the cost.**
+
+Two honest footnotes from the same pass. A *compact* variant of the rule files (same content, ~40% shorter) scored the same average with **more** defects — brevity is not enforcement either; the gates are what move behavior. And one judge false-positive taught us to attach fixture **input materials** to the judge, not just the answer key — a graded model was flagged for "fabricating" strings that were verbatim in its source file. The improvement loop this repo runs is exactly: defect readout → new gate → re-bench. Two consecutive cycles reproduced the same exchange rate: **one gate ≈ one defect axis removed.**
+
 ## Repo structure
 
 ```
@@ -85,11 +113,13 @@ Copy [`rules/`](rules/) into your harness workspace (e.g. `.claude/rules/`), poi
 
 **2. Install the hooks into your harness.**
 
-`hooks/` is the generalized, harness-agnostic form of the verification lifecycle — three files:
+`hooks/` is the generalized, harness-agnostic form of the verification lifecycle. The core three:
 
-- **`fable_lib.py`** — shared library. A "harness/code surface" heuristic decides which changed files require verification evidence (plain notes/markdown are exempt); an append-only evidence ledger records verifications (kept outside the project tree so it's never committed); and a pilot-gate kill switch (`FABLE_GATE_OFF=1`, or `FABLE_GATE_PILOT=<name>` to scope the gate to one named session before enabling it broadly). The other two hooks import it.
+- **`fable_lib.py`** — shared library. A "harness/code surface" heuristic decides which changed files require verification evidence (plain notes/markdown are exempt); an append-only evidence ledger records verifications, git usage, and boundary-expansion evidence (kept outside the project tree so it's never committed); and a pilot-gate kill switch (`FABLE_GATE_OFF=1`, or `FABLE_GATE_PILOT=<name>` to scope the gate to one named session before enabling it broadly). The other hooks import it.
 - **`verify-ledger.py`** — a `PostToolUse(Write|Edit|Bash)` hook. After a tool call, if the action is a real verification (a test run, a scan, a cross-check) it records that as evidence in an ordered ledger. It only records — never blocks. Fail-open (any exception exits cleanly).
-- **`stop-verify-gate.py`** — a `Stop` hook. When the agent tries to end a turn *after* changing a harness/code surface with no successful verification recorded since that change, it emits `{"decision":"block"}` to bounce the stop once and tell the agent to actually verify. Capped at `MAX_STOP_BLOCKS`, passes through the loop-guard, fail-open — a broken hook never wedges a session.
+- **`stop-verify-gate.py`** — a `Stop` hook carrying three checks (see [the gates table](#the-gates--and-what-they-measurably-change) above): change-verification, the absence-claim check, and the claim-evidence check. Each emits `{"decision":"block"}` to bounce the stop once with a concrete checklist. Capped bounces, loop-guard aware, fail-open — a broken hook never wedges a session.
+
+Alongside them: **`continuation-gate.py`** (Stop — deferral language), **`surfacing-gate.py`** (PreToolUse — destructive-command surfacing), and the opt-in **`cutover-review-gate.py`** / **`requirements-lock.py`** / **`branch-stray-guard.sh`** described in their headers.
 
 Wire `verify-ledger.py` into your harness's post-tool-use event and `stop-verify-gate.py` into its stop / turn-end event; both import `fable_lib.py`. **[`hooks/README.md`](hooks/README.md) has the step-by-step Claude Code install** — the exact `settings.json` snippets, how to confirm the gate is live, and the kill switch. After wiring, run `hooks/tests/test_gate.py` — it's a runnable spec of the gate's contract. Two companion suites keep the gate honest over time: `hooks/tests/replay/run.py` replays archived violation scenarios (block rate must stay 100%, and a corpus floor stops fixture-deletion from faking it), and `hooks/tests/probes/run.py` checks the pipeline's own contracts (exit-code conventions, ledger schema, escape hatches). When you switch reasoning models, `bench/substrate-check.sh` snapshots all of it in one JSON line — run it before and after; delta 0 confirms the gate mechanics (block rate, contracts, hooks) are intact across the transition — the plumbing didn't break. Behavioral transfer is what `bench/` measures. Adoption reasoning for these pieces: [docs/decision-history.md](docs/decision-history.md). If your harness is Codex specifically, see [Codex integration](#codex-integration) below — you likely want the upstream plugin instead of a manual port.
 
