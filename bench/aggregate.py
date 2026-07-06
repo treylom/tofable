@@ -20,12 +20,22 @@ from pathlib import Path
 
 TIEBREAK_PTS = 8.0
 SEED_RE = re.compile(r"^(?P<base>.+)-s(?P<seed>\d+)$")
-ARM_ORDER = ["opus-van", "opus-tof", "son-van", "son-tof", "son-tofc"]
-ARM_HARNESS = {"opus-van": "vanilla", "opus-tof": "tofable", "son-van": "vanilla",
-               "son-tof": "tofable", "son-tofc": "tofable-compact"}
+ARM_ORDER = ["opus-van", "opus-tof", "opus-tof2", "son-van", "son-tof", "son-tof2", "son-tofc"]
+ARM_HARNESS = {"opus-van": "vanilla", "opus-tof": "tofable", "opus-tof2": "tofable",
+               "son-van": "vanilla", "son-tof": "tofable", "son-tof2": "tofable",
+               "son-tofc": "tofable-compact"}
 ARM_MODEL = {"opus-van": "claude-opus-4-8", "opus-tof": "claude-opus-4-8",
+             "opus-tof2": "claude-opus-4-8",
              "son-van": "claude-sonnet-5", "son-tof": "claude-sonnet-5",
-             "son-tofc": "claude-sonnet-5"}
+             "son-tof2": "claude-sonnet-5", "son-tofc": "claude-sonnet-5"}
+# Defect-integrated score (재경님 2026-07-07 02:07 — "치명/중대 결함까지 점수표로"):
+# per fixture×arm cell, composite = seed-mean − P0_PENALTY·p0 − P1_PENALTY·p1
+# (defect counts = max across seeds, same rule the flags use). Weights chosen
+# so one P0 outweighs any style-point spread (~judge noise band) and can't be
+# washed out by a pretty report; sensitivity to ±50% weight changes is worth
+# checking before reading small composite gaps.
+P0_PENALTY = 15.0
+P1_PENALTY = 5.0
 
 
 def tag_of(run_dir_name: str, fixture: str) -> str:
@@ -84,14 +94,18 @@ def main() -> int:
 
     print(f"# aggregate — {runs}  (judged combos: {len(cell)})\n")
     print("## Arm scoreboard (mean of per-fixture seed-means)")
-    print("| arm | fixtures | avg | P0 | P1 | cost | avg dur |")
-    print("|---|---|---|---|---|---|---|")
+    print(f"composite = avg − {P0_PENALTY:.0f}·P0 − {P1_PENALTY:.0f}·P1 per fixture cell "
+          "(defects can't hide behind style points)")
+    print("| arm | fixtures | avg | **composite** | P0 | P1 | cost | avg dur |")
+    print("|---|---|---|---|---|---|---|---|")
     for a in arms:
         cs = [c for (f, b), c in cell.items() if b == a]
         if not cs:
             continue
         rows = [r for c in cs for r in c["rows"]]
+        composite = sum(max(0.0, c["mean"] - P0_PENALTY * c["p0"] - P1_PENALTY * c["p1"]) for c in cs) / len(cs)
         print(f"| {a} | {len(cs)} | {sum(c['mean'] for c in cs)/len(cs):.1f} "
+              f"| **{composite:.1f}** "
               f"| {sum(c['p0'] for c in cs)} | {sum(c['p1'] for c in cs)} "
               f"| ${sum(r['cost'] for r in rows):.2f} | {sum(r['dur'] for r in rows)//max(len(rows),1)}s |")
 

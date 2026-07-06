@@ -38,6 +38,7 @@ from typing import Any
 
 MAX_STOP_BLOCKS = 2
 MAX_ABSENCE_BLOCKS = 1
+MAX_CLAIM_BLOCKS = 1
 
 DEFAULT_LEDGER: dict[str, Any] = {
     "changed_files_seen": False,
@@ -53,6 +54,7 @@ DEFAULT_LEDGER: dict[str, Any] = {
     "git_commands": [],        # git usage this session (absence-gate evidence — ledger v2)
     "boundary_expansion_seen": False,  # git looked beyond the checked-out tree (--all / branch -a / …)
     "absence_blocks": 0,       # absence-gate bounce count
+    "claim_blocks": 0,         # claim-evidence gate bounce count (ledger v3)
     "event_seq": 0,          # monotonic event counter (code-review feedback — closes the
                               # "verify succeeds, then code changes" ordering bypass)
     "last_gated_seq": 0,     # event_seq of the most recent gated (harness/code) change
@@ -119,6 +121,35 @@ ABSENCE_CLAIM_RE = re.compile(
     r"|(?:파일|브랜치|코드|구현|이력|기록|모듈|버전|사본|테스트|참조)[^.\n]{0,25}(?:없|존재하지\s*않)"
     r")"
 )
+# --- claim-evidence gate (ledger v3 — cycle4 defect readout) ---
+# Two claim shapes that cycle4 judges repeatedly dinged when made without a
+# mechanical check in the tool log: (a) precise COUNT claims about measured
+# artifacts (digest off-by-one: "84 body messages" from a manual read-through),
+# (b) IDENTITY claims ("byte-for-byte identical" with no diff/checksum run).
+# Kept deliberately narrow: bare small numbers in prose ("3단계로 진행")
+# don't match — the count shape requires a measured-artifact noun, and the
+# 총/exactly/정확히 qualifiers or N>=3 anchor the "this was counted" reading.
+_COUNT_NOUN = r"(?:lines?|rows?|files?|entries|messages?|records?|matches|occurrences?|commits?|tests?|items?|줄|행|파일|건|개(?:의)?\s*(?:파일|메시지|줄|행|기록|항목|테스트|커밋)?)"
+_NUM_GE3 = r"(?:[3-9]|[1-9][0-9][0-9,]*|[1-9][0-9])"  # 3+ (1–2 in prose is usually self-knowledge, not a measurement)
+_ADJ1 = r"(?:[A-Za-z가-힣-]+\s+)?"  # one optional adjective — "84 body messages", "87 timestamped lines"
+COUNT_CLAIM_RE = re.compile(
+    r"(?i)(?:"
+    rf"(?:총|전체|모두\s*합쳐|정확히|exactly|in\s+total|a\s+total\s+of)\s*[0-9][0-9,]*\s*{_ADJ1}{_COUNT_NOUN}"
+    rf"|\b{_NUM_GE3}\s+{_ADJ1}{_COUNT_NOUN}"
+    rf"|\b{_NUM_GE3}\s*(?=[가-힣]){_COUNT_NOUN}"
+    r")"
+)
+IDENTITY_CLAIM_RE = re.compile(
+    r"(?i)(?:byte[- ]?(?:for[- ]?byte|identical)|identical\s+to|exact\s+match(?:es)?|"
+    r"완전히\s*동일|정확히\s*일치|바이트\s*단위로?\s*동일|동일함이?\s*확인)"
+)
+# Mechanical evidence = a counting/compare command in this session's recorded
+# verification_commands (VERIFY_RE already admits these shapes into the ledger).
+MECH_EVIDENCE_RE = re.compile(
+    r"(?i)\b(wc\s+-[lwc]|grep\s+-[a-z]*c|diff|cmp|comm|shasum|sha256sum|md5(?:sum)?|"
+    r"uniq\s+-c|sort\s+.*\|\s*uniq|find\s+.*\|\s*wc|ls\s+.*\|\s*wc|len\()"
+)
+
 SUCCESS_STATUSES = {"success", "succeeded", "completed", "complete", "ok", "passed", "pass"}
 FAILURE_STATUSES = {"failed", "failure", "error", "errored", "fatal", "timeout", "timed_out"}
 
@@ -182,7 +213,7 @@ def load_ledger(input_data: dict[str, Any]) -> dict[str, Any]:
     for key in ("changed_paths", "change_kinds", "verification_commands", "verification_results", "failures", "surfaced_ops", "git_commands"):
         if not isinstance(ledger.get(key), list):
             ledger[key] = []
-    for key in ("event_seq", "last_gated_seq", "stop_blocks", "continuation_blocks", "surfacing_blocks", "absence_blocks"):
+    for key in ("event_seq", "last_gated_seq", "stop_blocks", "continuation_blocks", "surfacing_blocks", "absence_blocks", "claim_blocks"):
         if not isinstance(ledger.get(key), int):
             ledger[key] = 0
     if not isinstance(ledger.get("boundary_expansion_seen"), bool):
@@ -502,5 +533,54 @@ def should_block_absence(ledger: dict[str, Any], final_text: str) -> tuple[bool,
         "('not in the checked-out tree; other branches/history not checked'). "
         "If the claim is genuinely outside git's scope, say so explicitly and stop "
         "again — this gate bounces once."
+    )
+    return True, reason
+
+
+def has_mechanical_evidence(ledger: dict[str, Any]) -> bool:
+    """Any recorded verification command that mechanically counts or compares."""
+    for rec in ledger.get("verification_commands", []):
+        cmd = rec.get("command", "") if isinstance(rec, dict) else str(rec)
+        if MECH_EVIDENCE_RE.search(cmd):
+            return True
+    return False
+
+
+def should_block_claim_evidence(ledger: dict[str, Any], final_text: str) -> tuple[bool, str]:
+    """Claim-evidence gate (ledger v3).
+
+    Arms when the final message makes a precise COUNT claim about measured
+    artifacts, or an IDENTITY claim ("byte-for-byte identical"), and no
+    mechanical counting/compare command (wc -l / grep -c / diff / cmp /
+    shasum / …) was recorded this session. Cycle4 measured this exact gap
+    twice with prose rules alone: an off-by-one count from a manual
+    read-through, and an identity claim with no diff in the tool log. One
+    bounce per session, checklist in the reason — same shape as the absence
+    gate, because that shape measurably works where prose doesn't.
+    """
+    if int(ledger.get("claim_blocks") or 0) >= MAX_CLAIM_BLOCKS:
+        return False, ""
+    if not final_text:
+        return False, ""
+    count_claim = bool(COUNT_CLAIM_RE.search(final_text))
+    identity_claim = bool(IDENTITY_CLAIM_RE.search(final_text))
+    if not (count_claim or identity_claim):
+        return False, ""
+    if has_mechanical_evidence(ledger):
+        return False, ""
+    reason = (
+        "fable-gate(claim-evidence): your final answer states "
+        + ("a precise count" if count_claim else "")
+        + (" and " if count_claim and identity_claim else "")
+        + ("an identity/equality claim" if identity_claim else "")
+        + ", but no mechanical check backs it in this session's tool log. "
+        "Numbers and equality are claims to verify, not narrate: "
+        "(1) for counts — run the count mechanically (`wc -l`, `grep -c`, "
+        "`ls | wc -l`) and show the arithmetic if you derived it; "
+        "(2) for identity — run `diff`/`cmp`/`shasum` on the two artifacts; "
+        "(3) then either cite the command and its output, or downgrade the "
+        "claim ('appears to match; not mechanically verified'). "
+        "If a mechanical check is genuinely impossible here, say so "
+        "explicitly and stop again — this gate bounces once."
     )
     return True, reason

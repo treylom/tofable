@@ -31,6 +31,7 @@ try:
         read_stdin_json,
         save_ledger,
         should_block_absence,
+        should_block_claim_evidence,
         should_block_stop,
     )
 except Exception:
@@ -61,6 +62,15 @@ def main() -> int:
         block, reason = should_block_absence(ledger, final_text)
         if block:
             ledger["absence_blocks"] = int(ledger.get("absence_blocks") or 0) + 1
+            save_ledger(input_data, ledger)
+            print(json.dumps({"decision": "block", "reason": reason}, ensure_ascii=False))
+            return 0
+        # Claim-evidence check (ledger v3) — precise counts / identity claims
+        # need a mechanical check in the tool log (cycle4: off-by-one manual
+        # count, unevidenced "byte-identical").
+        block, reason = should_block_claim_evidence(ledger, final_text)
+        if block:
+            ledger["claim_blocks"] = int(ledger.get("claim_blocks") or 0) + 1
             save_ledger(input_data, ledger)
             print(json.dumps({"decision": "block", "reason": reason}, ensure_ascii=False))
         return 0

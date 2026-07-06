@@ -58,6 +58,13 @@ PY
     done
   } ) > "$RUN/work-digest.md" 2>/dev/null || true
 
+# Fixture INPUT materials (what the graded model actually read). Without
+# these, trace-back checks run against the ANSWER-KEY's inventory alone — and
+# an incomplete inventory turns legitimate source content into a false
+# "fabrication" call (measured: cycle5 threads-style-fidelity P0 false
+# positive on strings present verbatim in source/notes.md).
+FIXTURE_INPUTS="$(cd "$SRC" && for f in $(find . -type f \( -name '*.md' -o -name '*.txt' -o -name '*.csv' -o -name '*.json' \) ! -name 'TASK.md' ! -name 'ANSWER-KEY.md' ! -name 'materialize.sh' | sort | head -12); do echo "--- $f (first 150 lines)"; head -150 "$f"; echo; done)"
+
 PROMPT="$(cat "$REPO/bench/judge-prompt.md")
 
 === rubric.md ===
@@ -68,6 +75,11 @@ $(cat "$SRC/TASK.md")
 
 === ANSWER-KEY.md (judge-only) ===
 $(cat "$SRC/ANSWER-KEY.md")
+
+=== Fixture input materials (verbatim, as the graded model saw them) ===
+Use these for trace-back checks: content that appears here is NOT fabricated,
+even if the ANSWER-KEY's inventory doesn't list it.
+$FIXTURE_INPUTS
 
 === Run under grade: behavior digest ===
 $(cat "$RUN/behavior-digest.md")

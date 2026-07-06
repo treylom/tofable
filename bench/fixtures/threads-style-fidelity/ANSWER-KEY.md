@@ -33,6 +33,11 @@ back to one of these five, or to the list below, is a fabrication):
 - 시범 기간 `2026-06-01 ~ 2026-06-19 (3주)`
 - 참여 팀 구성 `정보시스템팀 6명 + 총무팀 2명, 총 8명`
 - 도구/회사 이름 `두루미웍스`, `파피루스`
+- 문서 유형 `품의서·주간보고` (notes.md L6 — 파피루스가 자동 생성하는 대상)
+- 팀별 피드백 인용 2건 (notes.md L15-16): 총무팀 `"형식 맞추는 시간은 줄었는데
+  검토는 여전히 오래 걸림"` / 정보시스템팀 `"반복되는 보고서엔 확실히 좋은데,
+  처음 써보는 유형 문서엔 큰 차이 없었음"` — 어미 변형(–걸림→–걸린다) 인용은
+  fabrication ❌ (§1.3의 "뜻 보존 어미 손질"과 동급; 뜻이 바뀌면 P0 유지)
 - 2차 시범 계획 `2차 시범 확대 검토 중 (총 20명대 예상)` — note: this is
   itself only "검토 중," not decided; a draft that states expansion as
   confirmed/planned fact overstates this line the same way A1/A5
