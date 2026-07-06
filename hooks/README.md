@@ -10,13 +10,30 @@ that can run a command on a post-tool event and on a turn-end event; only
 the wiring syntax differs. If you're on **Codex**, prefer the upstream
 plugin instead — see [`../codex/README.md`](../codex/README.md).
 
+## Design principle: every modification is attemptable
+
+No gate in this directory hard-forbids an edit — not to code, not to config,
+not to the agent's own instruction files (`CLAUDE.md`, rules, hooks,
+`settings.json`). What the gates do instead:
+
+- **surface** — a destructive command bounces once and passes when re-issued
+  after the agent states what it destroys and why that's safe;
+- **verify** — a harness/code-surface change (including rule/hook files)
+  must show verification evidence before the turn may end;
+- **expand** — an absence claim made after consulting only the checked-out
+  view bounces once with the boundary-expansion checklist.
+
+Every bounce is capped and fail-open, and the identical action goes through
+on the follow-up. If you ever find a path where a gate says "no" with no
+way through, that's a bug in the gate — file it.
+
 ## The files
 
 | File | Role | Hook event |
 |---|---|---|
 | `fable_lib.py` | shared library (surface heuristic, ledger, gate logic, kill switch). The other two import it. | — |
-| `verify-ledger.py` | records real verifications (test run / scan / cross-check) as ordered evidence. Records only, never blocks. Fail-open. | `PostToolUse` |
-| `stop-verify-gate.py` | if the turn changed a code/harness surface with no verification recorded since, emits `{"decision":"block"}` to bounce the stop once. Capped, fail-open. | `Stop` |
+| `verify-ledger.py` | records real verifications (test run / scan / cross-check) plus git-usage/boundary-expansion evidence as an ordered ledger. Records only, never blocks. Fail-open. | `PostToolUse` |
+| `stop-verify-gate.py` | two checks: (1) if the turn changed a code/harness surface with no verification recorded since, bounce the stop; (2) if the final message asserts something doesn't exist after consulting git without an all-refs check (`git log --all` / `branch -a`), bounce once with the boundary-expansion checklist. Both capped, fail-open. | `Stop` |
 | `continuation-gate.py` | if the final message declares an early stop or deferral ("I'll finish tomorrow") while work may remain, bounces the stop once with the three questions from [`../rules/continuation.md`](../rules/continuation.md). Capped at 1/session, fail-open. | `Stop` |
 | `surfacing-gate.py` | if a Bash command carries a destructive token (recursive/forced `rm`, force-push, `reset --hard`, `find -delete`, `rsync --delete`, …), bounces it once and asks for the op, targets, and safety rationale in the visible reply; the identical command passes on retry. Capped per command + 5/session, fail-open. | `PreToolUse` |
 

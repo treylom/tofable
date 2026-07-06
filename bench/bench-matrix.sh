@@ -25,6 +25,9 @@ FIXTURES=(example-codefix pipe-exit-masking absence-claim-trap fact-check-bidire
           delegation-evidence-trap deck-outline knowledge-store-plan qa-cards-no-fabrication
           continuation-trap destructive-surfacing
           image-edit-decision threads-style-fidelity research-recency-conflict digest-skip-gate)
+# Scope the matrix to a subset (e.g. only review-cleared fixtures) without
+# editing this file: FIXTURES_OVERRIDE="a b c" bench-matrix.sh …
+if [ -n "${FIXTURES_OVERRIDE:-}" ]; then read -r -a FIXTURES <<< "$FIXTURES_OVERRIDE"; fi
 # arm = model:harness:tag
 ARMS=("claude-opus-4-8:vanilla:opus-van" "claude-opus-4-8:tofable:opus-tof"
       "claude-sonnet-5:vanilla:son-van" "claude-sonnet-5:tofable:son-tof"

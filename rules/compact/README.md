@@ -1,7 +1,8 @@
 # Compact rule variant
 
 Same disciplines as [`rules/`](../), rewritten as imperative checklists with
-the concrete commands inlined and the war stories removed (~1/3 the tokens).
+the concrete commands inlined and the war stories removed (roughly 40% fewer
+tokens per file; continuation compresses hardest at ~55%).
 
 Why it exists: the cycle3 A/B bench measured that prose rules translate into
 behavior on some models and not on others — one model ran `git log --all`

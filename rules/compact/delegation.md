@@ -14,6 +14,6 @@ Accepting results:
    - distinct: `shasum` the outputs — identical hashes under different names = one result copied N times
    - counted: batch outputs match the claimed count exactly (structured returns truncate silently).
 5. **Verify against sources, not narration.** Spot-check citations against the primary sources; many citations from very few tool calls = confabulation smell.
-6. **Disambiguate scope verbs before acting**: "register" ≠ "run now"; "fix the format" ≠ "replace the content"; "all N items" ≠ any subset.
+6. **Disambiguate scope verbs before acting**: "register" ≠ "run now"; "fix the format" ≠ "replace the content"; "all N items" ≠ any subset. When the scope word is ambiguous, one clarifying line is cheaper than the wrong interpretation executed well.
 7. **Decompose multi-part instructions into a checklist first**, execute against it, and diff the result against the ORIGINAL wording — not your memory of it.
 8. **Scope changes propagate the same turn**: patch the spec document and re-dispatch the delta immediately.

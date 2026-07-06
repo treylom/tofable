@@ -12,4 +12,4 @@ Amplifiers:
 5. **Partial output = report trigger, not silence.** Report the partial result and the remaining gap the moment either exists.
 
 Unresponsive process? Classify before waiting:
-6. **waiting** (known anchor + expected duration) → leave it alone · **hung** (no output past the time cap) → escalate, don't extend · **dead** (exited / needs interactive input) → restart or hand to a human. Treating hung/dead as "waiting" is how multi-hour stalls happen.
+6. **waiting** (known anchor + expected duration) → leave it alone · **hung** (no output past the time cap) → escalate, don't extend · **dead** (exited / needs interactive input) → restart or hand to a human, a mention won't reach it. Treating hung/dead as "waiting" is how multi-hour stalls happen.
