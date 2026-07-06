@@ -2,3 +2,4 @@
 .fable-bench/
 __pycache__/
 *.pyc
+scripts/.hygiene-tokens
