@@ -25,7 +25,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 try:
-    from fable_lib import gate_enabled, load_ledger, read_stdin_json, save_ledger
+    from fable_lib import gate_enabled, last_assistant_text, load_ledger, read_stdin_json, save_ledger
 except Exception:
     sys.exit(0)
 
@@ -62,30 +62,8 @@ QUESTIONS = (
 )
 
 
-def last_assistant_text(transcript_path: str) -> str:
-    """Last assistant message's text from a Claude Code transcript (jsonl)."""
-    try:
-        lines = Path(transcript_path).read_text(encoding="utf-8", errors="replace").splitlines()
-    except OSError:
-        return ""
-    for line in reversed(lines):
-        try:
-            entry = json.loads(line)
-        except (json.JSONDecodeError, ValueError):
-            continue
-        if entry.get("type") != "assistant":
-            continue
-        content = (entry.get("message") or {}).get("content")
-        parts: list[str] = []
-        if isinstance(content, str):
-            parts.append(content)
-        elif isinstance(content, list):
-            for block in content:
-                if isinstance(block, dict) and block.get("type") == "text":
-                    parts.append(str(block.get("text") or ""))
-        if parts:
-            return "\n".join(parts)
-    return ""
+# last_assistant_text moved to fable_lib (shared with stop-verify-gate's
+# absence check — both judge the turn's final message).
 
 
 def main() -> int:

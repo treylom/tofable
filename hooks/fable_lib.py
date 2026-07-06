@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Any
 
 MAX_STOP_BLOCKS = 2
+MAX_ABSENCE_BLOCKS = 1
 
 DEFAULT_LEDGER: dict[str, Any] = {
     "changed_files_seen": False,
@@ -49,6 +50,9 @@ DEFAULT_LEDGER: dict[str, Any] = {
     "continuation_blocks": 0,  # continuation-gate bounce count (deferral-language check)
     "surfacing_blocks": 0,     # surfacing-gate bounce count (destructive-op check)
     "surfaced_ops": [],        # hashes of destructive commands already bounced once
+    "git_commands": [],        # git usage this session (absence-gate evidence — ledger v2)
+    "boundary_expansion_seen": False,  # git looked beyond the checked-out tree (--all / branch -a / …)
+    "absence_blocks": 0,       # absence-gate bounce count
     "event_seq": 0,          # monotonic event counter (code-review feedback — closes the
                               # "verify succeeds, then code changes" ordering bypass)
     "last_gated_seq": 0,     # event_seq of the most recent gated (harness/code) change
@@ -91,6 +95,30 @@ FAILURE_RE = re.compile(
 EXIT_ZERO_RE = re.compile(r"(?i)\b(exit code|exited with code|process exited with code)\s*:?\s*0\b")
 SUCCESS_RE = re.compile(r"(?i)\b(passed|success(?:fully)?|succeeded|0 failed|compiled successfully|built successfully|build succeeded|ok|green|valid)\b")
 MUTATING_BASH_RE = re.compile(r"(?i)\b(chmod|mkdir|mv|cp|rm|touch|tee|sed\s+-i|launchctl|npm\s+run\s+build|git\s+(add|commit|push|reset))\b")
+# --- absence-gate evidence (ledger v2) ---
+# Any git invocation counts as "consulted repository state"; the boundary
+# pattern marks the subset that looked beyond the checked-out tree. The gate
+# only arms when the first is present without the second (see
+# should_block_absence) — sessions that never touch git are out of scope.
+# `git\s+\S` (not `[a-z]`): real investigation commands often lead with
+# global options (`git -C repo log …`) — an alpha anchor missed exactly the
+# command shape observed in cycle3 runs.
+GIT_USAGE_RE = re.compile(r"(?i)(?:^|[|;&`(\s])git\s+\S")
+BOUNDARY_EXPANSION_RE = re.compile(
+    r"(?i)\bgit\b[^\n|;&]{0,140}?(?:--all\b|\bbranch\s+-(?:a|av|avv|va|r)\b|\bbranch\s+--all\b|\bls-files\b|\bshow-ref\b|\bfor-each-ref\b|\bstash\s+list\b|\breflog\b)"
+)
+# Absence claims about repository/corpus artifacts (not generic "no issues").
+_ABSENCE_ART = r"(?:files?|branch(?:es)?|commits?|history|implementations?|modules?|versions?|cop(?:y|ies)|logic|code|codebase|tests?|references?|mentions?|records?|definitions?|configs?|handlers?|handling|usages?|occurrences?|functions?|classes?)"
+ABSENCE_CLAIM_RE = re.compile(
+    r"(?i)(?:"
+    rf"there\s+(?:is|are|was|were)\s+no[\w\s,'-]{{0,40}}?\b{_ABSENCE_ART}\b"
+    rf"|\bno\s+(?:other|prior|existing|such|additional|further|hidden|remaining)\b[\w\s,'-]{{0,30}}?\b{_ABSENCE_ART}\b"
+    rf"|\b{_ABSENCE_ART}\b[^.\n]{{0,40}}?(?:doesn'?t|does\s+not|do\s+not|don'?t)\s+exist"
+    r"|\bnothing\s+(?:else|hiding|more\s+to|beyond|prior)\b"
+    r"|\bnot\s+(?:present|found)\s+anywhere\b"
+    r"|(?:파일|브랜치|코드|구현|이력|기록|모듈|버전|사본|테스트|참조)[^.\n]{0,25}(?:없|존재하지\s*않)"
+    r")"
+)
 SUCCESS_STATUSES = {"success", "succeeded", "completed", "complete", "ok", "passed", "pass"}
 FAILURE_STATUSES = {"failed", "failure", "error", "errored", "fatal", "timeout", "timed_out"}
 
@@ -151,12 +179,14 @@ def load_ledger(input_data: dict[str, Any]) -> dict[str, Any]:
     ledger = default_ledger()
     if isinstance(data, dict):
         ledger.update({key: data.get(key, value) for key, value in ledger.items()})
-    for key in ("changed_paths", "change_kinds", "verification_commands", "verification_results", "failures", "surfaced_ops"):
+    for key in ("changed_paths", "change_kinds", "verification_commands", "verification_results", "failures", "surfaced_ops", "git_commands"):
         if not isinstance(ledger.get(key), list):
             ledger[key] = []
-    for key in ("event_seq", "last_gated_seq", "stop_blocks", "continuation_blocks", "surfacing_blocks"):
+    for key in ("event_seq", "last_gated_seq", "stop_blocks", "continuation_blocks", "surfacing_blocks", "absence_blocks"):
         if not isinstance(ledger.get(key), int):
             ledger[key] = 0
+    if not isinstance(ledger.get("boundary_expansion_seen"), bool):
+        ledger["boundary_expansion_seen"] = False
     return ledger
 
 
@@ -171,7 +201,7 @@ def save_ledger(input_data: dict[str, Any], ledger: dict[str, Any]) -> Path:
             if v not in seen:
                 seen.append(v)
         ledger[key] = seen[:40]
-    for key in ("verification_commands", "verification_results", "failures"):
+    for key in ("verification_commands", "verification_results", "failures", "git_commands"):
         ledger[key] = ledger.get(key, [])[-40:]
     fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
     tmp = Path(tmp_name)
@@ -323,6 +353,55 @@ def verification_record(input_data: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
+def git_usage_record(input_data: dict[str, Any]) -> dict[str, Any] | None:
+    """Bash git usage — investigation evidence consumed by the absence gate.
+
+    Ledger v2: read-only investigation used to leave the ledger untouched,
+    which made read-phase disciplines (absence claims) structurally invisible
+    to the Stop gate — measured in cycle3 (absence-claim-trap runs had no
+    ledger at all). Recording git usage closes that blind spot.
+    """
+    if str(input_data.get("tool_name") or "") != "Bash":
+        return None
+    command = command_from_input(input_data)
+    if not command or not GIT_USAGE_RE.search(command):
+        return None
+    return {
+        "command": redact(command, 220),
+        "boundary": bool(BOUNDARY_EXPANSION_RE.search(command)),
+    }
+
+
+def last_assistant_text(transcript_path: str) -> str:
+    """Last assistant message's text from a Claude Code transcript (jsonl).
+
+    Shared by continuation-gate (deferral language) and stop-verify-gate
+    (absence claims) — both judge the turn's final message.
+    """
+    try:
+        lines = Path(transcript_path).read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return ""
+    for line in reversed(lines):
+        try:
+            entry = json.loads(line)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if entry.get("type") != "assistant":
+            continue
+        content = (entry.get("message") or {}).get("content")
+        parts: list[str] = []
+        if isinstance(content, str):
+            parts.append(content)
+        elif isinstance(content, list):
+            for block in content:
+                if isinstance(block, dict) and block.get("type") == "text":
+                    parts.append(str(block.get("text") or ""))
+        if parts:
+            return "\n".join(parts)
+    return ""
+
+
 def detect_failure(input_data: dict[str, Any]) -> dict[str, Any] | None:
     text = response_text(input_data.get("tool_response", input_data))
     success = exit_success(input_data, text)
@@ -387,5 +466,41 @@ def should_block_stop(ledger: dict[str, Any]) -> tuple[bool, str]:
         "the middle of the pipeline. "
         "If no verification is actually possible, say so explicitly in your "
         "response before stopping."
+    )
+    return True, reason
+
+
+def should_block_absence(ledger: dict[str, Any], final_text: str) -> tuple[bool, str]:
+    """Absence-claim gate (ledger v2).
+
+    Arms only when ALL hold: the final message asserts that some artifact
+    does not exist / there is nothing else; this session consulted git at
+    least once (so repository state was part of the investigation); and no
+    boundary-expansion command (`git log --all`, `git branch -a`, …) was ever
+    run. One bounce per session, with the concrete checklist in the reason —
+    cycle3 measured that prose rules alone don't turn into this behavior on
+    every model, while mechanical gates do.
+    """
+    if int(ledger.get("absence_blocks") or 0) >= MAX_ABSENCE_BLOCKS:
+        return False, ""
+    if not final_text or not ABSENCE_CLAIM_RE.search(final_text):
+        return False, ""
+    if not ledger.get("git_commands"):
+        return False, ""  # v1 scope: git-boundary absence only — non-git sessions pass
+    if ledger.get("boundary_expansion_seen"):
+        return False, ""
+    reason = (
+        "fable-gate(absence): your final answer asserts that something does not "
+        "exist / there is nothing else, and this session consulted git — but only "
+        "the checked-out view (no `git log --all`, `git branch -a`, or equivalent "
+        "all-refs check was run). Before an absence claim: "
+        "(1) run `git log --oneline --all` and `git branch -a` — unmerged branches "
+        "are where 'missing' things live; "
+        "(2) re-run your search unfiltered and untruncated (no head/limit), with "
+        "synonym vocabulary; "
+        "(3) then either cite the boundary you checked, or downgrade the claim "
+        "('not in the checked-out tree; other branches/history not checked'). "
+        "If the claim is genuinely outside git's scope, say so explicitly and stop "
+        "again — this gate bounces once."
     )
     return True, reason

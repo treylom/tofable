@@ -26,9 +26,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
     from fable_lib import (
         gate_enabled,
+        last_assistant_text,
         load_ledger,
         read_stdin_json,
         save_ledger,
+        should_block_absence,
         should_block_stop,
     )
 except Exception:
@@ -46,12 +48,21 @@ def main() -> int:
             return 0
         ledger = load_ledger(input_data)
         block, reason = should_block_stop(ledger)
-        if not block:
+        if block:
+            ledger["stop_blocks"] = int(ledger.get("stop_blocks") or 0) + 1
+            save_ledger(input_data, ledger)
+            # hookkit hk_block_stop convention: stdout JSON + exit 0
+            print(json.dumps({"decision": "block", "reason": reason}, ensure_ascii=False))
             return 0
-        ledger["stop_blocks"] = int(ledger.get("stop_blocks") or 0) + 1
-        save_ledger(input_data, ledger)
-        # hookkit hk_block_stop convention: stdout JSON + exit 0
-        print(json.dumps({"decision": "block", "reason": reason}, ensure_ascii=False))
+        # Absence-claim check (ledger v2) — read-phase discipline the change-
+        # verification gate above cannot see, because read-only sessions never
+        # record changed kinds. Judges the final message + git evidence.
+        final_text = last_assistant_text(str(input_data.get("transcript_path") or ""))
+        block, reason = should_block_absence(ledger, final_text)
+        if block:
+            ledger["absence_blocks"] = int(ledger.get("absence_blocks") or 0) + 1
+            save_ledger(input_data, ledger)
+            print(json.dumps({"decision": "block", "reason": reason}, ensure_ascii=False))
         return 0
     except Exception:
         return 0  # fail-open

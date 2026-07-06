@@ -11,6 +11,21 @@
 #                                  file, with FABLE_STATE_DIR isolated inside
 #                                  the run directory. Everything else is
 #                                  identical between arms.
+#            "tofable-compact"   — same hooks as "tofable", but injects the
+#                                  imperative-checklist rule variant from
+#                                  rules/compact/ (arm for models that do
+#                                  not translate prose rules into behavior).
+#
+# Environment isolation: every arm runs with --setting-sources "" and
+# --strict-mcp-config, so the host user's settings (hooks, plugins, memory
+# injections, global CLAUDE.md) and MCP servers never leak into the session
+# under test. Verified empirically (cycle3 postmortem): without these flags
+# the session inherits the host's SessionStart hooks and full MCP tool
+# surface — one host MCP server ships an instruction block that a model
+# under test correctly reported as an injection attempt, and the judge,
+# blind to the host environment, mis-graded that report as fabrication.
+# A run-local --settings file still applies under --setting-sources ""
+# (probed), which is how the tofable hooks get wired.
 #
 # Env vars:
 #   FABLE_BENCH_DIR      Directory containing fixture subfolders
@@ -36,7 +51,7 @@ FIXTURE="${1:?usage: run.sh <fixture> <model> [run_tag] [harness]}"
 MODEL="${2:?usage: run.sh <fixture> <model> [run_tag] [harness]}"
 TAG="${3:-run}"
 HARNESS="${4:-vanilla}"
-case "$HARNESS" in vanilla|tofable) ;; *) echo "harness must be vanilla|tofable" >&2; exit 1;; esac
+case "$HARNESS" in vanilla|tofable|tofable-compact) ;; *) echo "harness must be vanilla|tofable|tofable-compact" >&2; exit 1;; esac
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
@@ -66,8 +81,10 @@ if [ -x "$SRC/materialize.sh" ]; then bash "$SRC/materialize.sh" "$RUN/work"; fi
 # Ledger state is isolated per run (FABLE_STATE_DIR inside the run dir) so
 # arms never share bounce/evidence bookkeeping.
 EXTRA_ARGS=()
-if [ "$HARNESS" = "tofable" ]; then
-  RULES="$(cat "$REPO_DIR/rules/verification.md" "$REPO_DIR/rules/delegation.md" "$REPO_DIR/rules/continuation.md")"
+if [ "$HARNESS" = "tofable" ] || [ "$HARNESS" = "tofable-compact" ]; then
+  RULES_DIR="$REPO_DIR/rules"
+  [ "$HARNESS" = "tofable-compact" ] && RULES_DIR="$REPO_DIR/rules/compact"
+  RULES="$(cat "$RULES_DIR/verification.md" "$RULES_DIR/delegation.md" "$RULES_DIR/continuation.md")"
   python3 - "$RUN" "$REPO_DIR" <<'PY'
 import json, sys, pathlib
 run, repo = pathlib.Path(sys.argv[1]), sys.argv[2]
@@ -93,11 +110,16 @@ set +e
 # --output-format stream-json preserves the full tool-execution transcript,
 # not just the closing message — the judge needs behavioral evidence (what
 # was actually run, checked, verified), not only the final self-report.
+# --setting-sources "" + --strict-mcp-config: see "Environment isolation"
+# in the header. stdin is redirected from /dev/null so the CLI doesn't
+# wait 3s probing for piped input on every run.
 ( cd "$RUN/work" && claude -p "$(cat TASK.md)" \
     --model "$MODEL" \
     --dangerously-skip-permissions \
+    --setting-sources "" \
+    --strict-mcp-config \
     ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} \
-    --output-format stream-json --verbose ) > "$RUN/transcript.jsonl" 2> "$RUN/stderr.log"
+    --output-format stream-json --verbose ) < /dev/null > "$RUN/transcript.jsonl" 2> "$RUN/stderr.log"
 CODE=$?
 set -e
 DUR=$(( $(date +%s) - START ))

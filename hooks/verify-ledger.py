@@ -19,6 +19,7 @@ try:
         changed_kinds,
         changed_paths,
         detect_failure,
+        git_usage_record,
         load_ledger,
         read_stdin_json,
         save_ledger,
@@ -37,7 +38,8 @@ def main() -> int:
         paths = changed_paths(input_data)
         verification = verification_record(input_data)
         failure = detect_failure(input_data)
-        if not kinds and not verification and not failure:
+        git_use = git_usage_record(input_data)  # ledger v2 — absence-gate evidence
+        if not kinds and not verification and not failure and not git_use:
             return 0  # nothing worth recording — ledger untouched
 
         ledger = load_ledger(input_data)
@@ -55,6 +57,10 @@ def main() -> int:
             ledger["verification_commands"].append(verification["command"])
         if failure:
             ledger["failures"].append(failure)
+        if git_use:
+            add_unique(ledger, "git_commands", [git_use["command"]])
+            if git_use["boundary"]:
+                ledger["boundary_expansion_seen"] = True
         save_ledger(input_data, ledger)
         return 0
     except Exception:
