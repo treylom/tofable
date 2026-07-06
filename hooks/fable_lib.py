@@ -46,6 +46,7 @@ DEFAULT_LEDGER: dict[str, Any] = {
     "verification_results": [],
     "failures": [],
     "stop_blocks": 0,
+    "continuation_blocks": 0,  # continuation-gate bounce count (deferral-language check)
     "event_seq": 0,          # monotonic event counter (code-review feedback — closes the
                               # "verify succeeds, then code changes" ordering bypass)
     "last_gated_seq": 0,     # event_seq of the most recent gated (harness/code) change
@@ -147,7 +148,7 @@ def load_ledger(input_data: dict[str, Any]) -> dict[str, Any]:
     for key in ("changed_paths", "change_kinds", "verification_commands", "verification_results", "failures"):
         if not isinstance(ledger.get(key), list):
             ledger[key] = []
-    for key in ("event_seq", "last_gated_seq", "stop_blocks"):
+    for key in ("event_seq", "last_gated_seq", "stop_blocks", "continuation_blocks"):
         if not isinstance(ledger.get(key), int):
             ledger[key] = 0
     return ledger

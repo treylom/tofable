@@ -17,6 +17,7 @@ plugin instead — see [`../codex/README.md`](../codex/README.md).
 | `fable_lib.py` | shared library (surface heuristic, ledger, gate logic, kill switch). The other two import it. | — |
 | `verify-ledger.py` | records real verifications (test run / scan / cross-check) as ordered evidence. Records only, never blocks. Fail-open. | `PostToolUse` |
 | `stop-verify-gate.py` | if the turn changed a code/harness surface with no verification recorded since, emits `{"decision":"block"}` to bounce the stop once. Capped, fail-open. | `Stop` |
+| `continuation-gate.py` | if the final message declares an early stop or deferral ("I'll finish tomorrow") while work may remain, bounces the stop once with the three questions from [`../rules/continuation.md`](../rules/continuation.md). Capped at 1/session, fail-open. | `Stop` |
 
 ## Install (Claude Code)
 
@@ -34,7 +35,8 @@ Pick a stable absolute path for the three files — e.g. `~/.claude/fable-hooks/
 ```bash
 mkdir -p ~/.claude/fable-hooks
 cp fable-work/hooks/fable_lib.py fable-work/hooks/verify-ledger.py \
-   fable-work/hooks/stop-verify-gate.py ~/.claude/fable-hooks/
+   fable-work/hooks/stop-verify-gate.py \
+     fable-work/hooks/continuation-gate.py ~/.claude/fable-hooks/
 ```
 
 **2. Wire them into `~/.claude/settings.json`.**
@@ -56,7 +58,8 @@ don't overwrite existing hooks). Use the **absolute path** from step 1:
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "command": "python3 $HOME/.claude/fable-hooks/stop-verify-gate.py" }
+          { "type": "command", "command": "python3 $HOME/.claude/fable-hooks/stop-verify-gate.py" },
+          { "type": "command", "command": "python3 $HOME/.claude/fable-hooks/continuation-gate.py" }
         ]
       }
     ]
