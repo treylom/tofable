@@ -73,7 +73,11 @@ VERIFY_RE = re.compile(
     r"(?i)\b("
     r"pytest|unittest|go\s+test|cargo\s+test|npm\s+test|pnpm\s+test|yarn\s+test|vitest|jest|playwright|"
     r"lint|eslint|ruff|flake8|mypy|pyright|tsc|typecheck|"
-    r"bash\s+-n|zsh\s+-n|sh\s+-n|py_compile|json\.tool|python3?\s+-m\s+unittest|tests?/test_[a-z0-9_]+\.py|"
+    # test_*.py counts as verification only when *executed* (python3 anchor) —
+    # `cat`/`grep` of a test file is reading, not verifying. `./test_x.py`
+    # direct-exec is not matched (the leading \b can't sit before a dot);
+    # rare enough to leave out rather than weaken the anchor.
+    r"bash\s+-n|zsh\s+-n|sh\s+-n|py_compile|json\.tool|python3?\s+-m\s+unittest|python3?\s+(?:[^\s]*/)?test_[a-z0-9_]+\.py|"
     r"build|check|validate|verify|diff|shasum|md5|grep\s+-c|wc\s+-l|curl"
     r")\b"
 )
@@ -377,7 +381,10 @@ def should_block_stop(ledger: dict[str, Any]) -> tuple[bool, str]:
         + (", ".join(paths) if paths else ", ".join(sorted(gated)))
         + ") but there's no recorded successful verification (test, `bash -n`,\n"
         "grep confirmation, diff, etc.) for it. Run the narrowest verification "
-        "that fits the change and confirm the result before stopping. "
+        "that fits the change and confirm the result before stopping — and say "
+        "which layer it ran at (source / build / render / consumer): a check "
+        "that never reached where the result is actually consumed only proves "
+        "the middle of the pipeline. "
         "If no verification is actually possible, say so explicitly in your "
         "response before stopping."
     )

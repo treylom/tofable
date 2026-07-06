@@ -2,7 +2,15 @@
 # fable-bench runner — executes ONE fixture against a specified model in a
 # headless Claude Code session and preserves the raw transcript for judging.
 #
-# usage: run.sh <fixture-name> <model> [run_tag]
+# usage: run.sh <fixture-name> <model> [run_tag] [harness]
+#
+#   harness: "vanilla" (default) — stock headless session, no fable material
+#            "tofable"           — the A/B arm: injects the three rules files
+#                                  via --append-system-prompt AND wires the
+#                                  four hooks through a run-local settings
+#                                  file, with FABLE_STATE_DIR isolated inside
+#                                  the run directory. Everything else is
+#                                  identical between arms.
 #
 # Env vars:
 #   FABLE_BENCH_DIR      Directory containing fixture subfolders
@@ -24,11 +32,14 @@
 #                     cost, turn count, etc.)
 set -euo pipefail
 
-FIXTURE="${1:?usage: run.sh <fixture> <model> [run_tag]}"
-MODEL="${2:?usage: run.sh <fixture> <model> [run_tag]}"
+FIXTURE="${1:?usage: run.sh <fixture> <model> [run_tag] [harness]}"
+MODEL="${2:?usage: run.sh <fixture> <model> [run_tag] [harness]}"
 TAG="${3:-run}"
+HARNESS="${4:-vanilla}"
+case "$HARNESS" in vanilla|tofable) ;; *) echo "harness must be vanilla|tofable" >&2; exit 1;; esac
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(dirname "$SCRIPT_DIR")"
 FABLE_BENCH_DIR="${FABLE_BENCH_DIR:-$SCRIPT_DIR/fixtures}"
 FABLE_BENCH_RUNS_DIR="${FABLE_BENCH_RUNS_DIR:-$HOME/.fable-bench/runs}"
 
@@ -50,6 +61,33 @@ rsync -a --exclude 'ANSWER-KEY.md' --exclude 'materialize.sh' "$SRC/" "$RUN/work
 # materialize.sh, run it now against the run's working dir.
 if [ -x "$SRC/materialize.sh" ]; then bash "$SRC/materialize.sh" "$RUN/work"; fi
 
+# The tofable arm: same session, plus the three rules injected into the
+# system prompt and the four hooks wired via a run-local settings file.
+# Ledger state is isolated per run (FABLE_STATE_DIR inside the run dir) so
+# arms never share bounce/evidence bookkeeping.
+EXTRA_ARGS=()
+if [ "$HARNESS" = "tofable" ]; then
+  RULES="$(cat "$REPO_DIR/rules/verification.md" "$REPO_DIR/rules/delegation.md" "$REPO_DIR/rules/continuation.md")"
+  python3 - "$RUN" "$REPO_DIR" <<'PY'
+import json, sys, pathlib
+run, repo = pathlib.Path(sys.argv[1]), sys.argv[2]
+hooks = lambda name: f"python3 {repo}/hooks/{name}"
+settings = {
+    "hooks": {
+        "PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": hooks("surfacing-gate.py")}]}],
+        "PostToolUse": [{"matcher": "Write|Edit|Bash", "hooks": [{"type": "command", "command": hooks("verify-ledger.py")}]}],
+        "Stop": [{"hooks": [
+            {"type": "command", "command": hooks("stop-verify-gate.py")},
+            {"type": "command", "command": hooks("continuation-gate.py")},
+        ]}],
+    }
+}
+(run / "tofable-settings.json").write_text(json.dumps(settings, indent=2))
+PY
+  EXTRA_ARGS+=(--append-system-prompt "$RULES" --settings "$RUN/tofable-settings.json")
+  export FABLE_STATE_DIR="$RUN/fable-state"
+fi
+
 START=$(date +%s)
 set +e
 # --output-format stream-json preserves the full tool-execution transcript,
@@ -58,6 +96,7 @@ set +e
 ( cd "$RUN/work" && claude -p "$(cat TASK.md)" \
     --model "$MODEL" \
     --dangerously-skip-permissions \
+    ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} \
     --output-format stream-json --verbose ) > "$RUN/transcript.jsonl" 2> "$RUN/stderr.log"
 CODE=$?
 set -e
@@ -90,13 +129,13 @@ if result_obj is not None:
     (run / "raw-output.json").write_text(json.dumps(result_obj, ensure_ascii=False, indent=2))
 PY
 
-python3 - "$RUN" "$FIXTURE" "$MODEL" "$CODE" "$DUR" <<'PY'
+python3 - "$RUN" "$FIXTURE" "$MODEL" "$CODE" "$DUR" "$HARNESS" <<'PY'
 import json, sys, pathlib
-run, fixture, model, code, dur = sys.argv[1:6]
+run, fixture, model, code, dur, harness = sys.argv[1:7]
 meta = {
-    "schema_version": 1, "proof_class": "fixture-run",
-    "fixture": fixture, "model": model, "exit_code": int(code),
-    "duration_sec": int(dur), "run_dir": run,
+    "schema_version": 2, "proof_class": "fixture-run",
+    "fixture": fixture, "model": model, "harness": harness,
+    "exit_code": int(code), "duration_sec": int(dur), "run_dir": run,
 }
 p = pathlib.Path(run)
 raw = p / "raw-output.json"
