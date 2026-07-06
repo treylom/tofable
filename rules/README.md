@@ -1,6 +1,6 @@
 # rules/ — example rule layer (Layer 1)
 
-These are **generic, copyable examples** of the trigger-keyed rule files described in [docs/method.md](../docs/method.md#layer-1--rule-patterns). They are not our production house rules — those are environment-specific (real paths, bot names, project history) and stay private. What ships here is the *shape*, with two fully written examples mined from real sessions.
+These are **generic, copyable examples** of the trigger-keyed rule files described in [docs/method.md](../docs/method.md#layer-1--rule-patterns). They are not our production house rules — those are environment-specific (real paths, bot names, project history) and stay private. What ships here is the *shape*, with three fully written examples mined from real sessions.
 
 How to use:
 

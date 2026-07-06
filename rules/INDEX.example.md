@@ -6,6 +6,7 @@
 |---|---|---|
 | claim work is done / verified / passing | [verification.md](verification.md) | evidence before claims; state the grade; verify the verifier |
 | hand work to a sub-agent / worker / other bot | [delegation.md](delegation.md) | complete HOW up front; check capacity; ack ≠ execution |
+| stop, defer, or wrap up with goals remaining | [continuation.md](continuation.md) | real blocker? whose call? reported? — triage waiting/hung/dead |
 | edit code or config | *(write your own — e.g. blast-radius check before, 3-step verify after)* | |
 | write to shared storage / publish externally | *(write your own — e.g. independent review gate before anything public)* | |
 | assert something "doesn't exist / is broken" | *(write your own — e.g. widen the search before concluding absence)* | |
