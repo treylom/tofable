@@ -70,10 +70,18 @@ convention.
 
 ## Passing bar
 
-This is a project-defined threshold — set it for your own use case. As a
-starting point: suite average >= **95** AND P0/P1 count = 0. Early
-benchmarking cycles may deliberately aim for baseline-gathering rather than
-passing — the goal of a first run is usually to find gaps, not to pass.
+This is a project-defined threshold — set it for your own use case. This
+framework's KPI is **defect counts, not averages**: pass = **P0 = 0 AND
+P1 = 0** across the suite. Averages are reported as context only — a
+suite average is easily padded by ceiling fixtures (see the bench README's
+ceiling-fixture note) and easily dominated by tasks every arm passes,
+while the signal lives in the trap fixtures' defect swings. Measured
+motivation: an arm comparison where the suite average moved −0.3
+(inside seed noise) while a planted P0 disappeared entirely and P1 fell
+5→4 — the defect axis saw what the average couldn't. Early
+benchmarking cycles may deliberately aim for baseline-gathering rather
+than passing — the goal of a first run is usually to find gaps, not to
+pass.
 
 ## judge output JSON (final block)
 

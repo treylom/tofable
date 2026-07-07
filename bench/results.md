@@ -24,7 +24,7 @@ The axes:
 | **A5 — completeness** | Are all requested deliverables actually present? |
 | **SPECIAL** | Task-specific rule the fixture targets (e.g. "outline before build", "don't fabricate an unanswered question's answer"). |
 
-**Defect grades gate the score:** `P0` (critical — wrong/unsafe output, or a false "all clear") and `P1` (a required discipline was skipped) cap the score regardless of the axis average. `P2` is minor. A suite "passes" only at avg ≥ 95 **and** zero P0/P1.
+**Defect grades gate the score:** `P0` (critical — wrong/unsafe output, or a false "all clear") and `P1` (a required discipline was skipped) cap the score regardless of the axis average. `P2` is minor. The passing KPI is **defect counts** — pass = zero P0/P1 across the suite; averages are context, not the bar (they're too easily padded by ceiling tasks — see rubric.md "Passing bar" for the current definition, which supersedes the avg-≥95 wording used when this page was written).
 
 Crucially, the judge is given the **tool-use transcript**, so a claim like "I ran the tests" scores only if the transcript shows the command actually running. Grading on self-report alone under-scores real work — see the 93→96 finding in the top-level README.
 
