@@ -37,11 +37,22 @@ bench/
 bench/run.sh example-codefix <your-model-id> my-tag
 ```
 
+Codex arms use the matching Codex runner. It always passes
+`--ignore-user-config`; `codex-tof` adds a run-local `CODEX_HOME` with the
+bundled `codex/gates/hooks.json` wiring and a run-local `FABLE_STATE_DIR`.
+
+```bash
+bench/run-codex.sh example-codefix codex-default codex-van-s1 codex-van
+bench/run-codex.sh example-codefix codex-default codex-tof-s1 codex-tof
+```
+
 This writes results to `$FABLE_BENCH_RUNS_DIR/<timestamp>-example-codefix-my-tag/`
 (default `$HOME/.fable-bench/runs/...`):
 
 - `work/` — the fixture copy the model actually worked in
 - `transcript.jsonl` — the full stream-json transcript (every tool call)
+- `transcript.txt` — the judge-readable dialogue transcript generated from
+  Codex JSONL when using `run-codex.sh`
 - `raw-output.json` — the transcript's final `result` event + a
   `tool_use_count` derived from the transcript
 - `meta.json` — run metadata (model, exit code, duration, cost, turn count)

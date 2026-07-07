@@ -28,10 +28,13 @@ FIXTURES=(example-codefix pipe-exit-masking absence-claim-trap fact-check-bidire
 # Scope the matrix to a subset (e.g. only review-cleared fixtures) without
 # editing this file: FIXTURES_OVERRIDE="a b c" bench-matrix.sh …
 if [ -n "${FIXTURES_OVERRIDE:-}" ]; then read -r -a FIXTURES <<< "$FIXTURES_OVERRIDE"; fi
-# arm = model:harness:tag
+# arm = model:harness:tag. Codex arms use bench/run-codex.sh; Claude arms
+# keep using bench/run.sh. Codex model defaults to the CLI's configured
+# default, so comparisons are valid only within codex-van vs codex-tof.
 ARMS=("claude-opus-4-8:vanilla:opus-van" "claude-opus-4-8:tofable:opus-tof"
       "claude-sonnet-5:vanilla:son-van" "claude-sonnet-5:tofable:son-tof"
-      "claude-sonnet-5:tofable-compact:son-tofc")
+      "claude-sonnet-5:tofable-compact:son-tofc"
+      "codex-default:codex-van:codex-van" "codex-default:codex-tof:codex-tof")
 
 mkdir -p "$RUNS"
 echo "matrix: ${#FIXTURES[@]} fixtures x ${#ARMS[@]} arms x ${SEEDS} seeds -> $RUNS (parallel=$MAXP)"
@@ -50,7 +53,9 @@ for f in "${FIXTURES[@]}"; do
       while [ "$(jobs -rp | wc -l | tr -d ' ')" -ge "$MAXP" ]; do sleep 5; done
       i=$((i+1))
       echo "[$i] launch: $f x $tag"
-      ( "$REPO/bench/run.sh" "$f" "$model" "$tag" "$harness" >/dev/null 2>&1 \
+      runner="$REPO/bench/run.sh"
+      case "$harness" in codex-van|codex-tof) runner="$REPO/bench/run-codex.sh";; esac
+      ( "$runner" "$f" "$model" "$tag" "$harness" >/dev/null 2>&1 \
           && echo "done: $f/$tag" || echo "FAIL: $f/$tag" ) &
       sleep 2
     done
