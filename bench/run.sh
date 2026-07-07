@@ -21,6 +21,15 @@
 #                                  matcher that arms the subordinate-evidence
 #                                  Stop check. Kept as a separate arm so the
 #                                  v4 delta is measurable against "tofable".
+#            "tofable-rtk"       — "tofable-v4" plus a token-optimizing
+#                                  output-rewriter wired as an extra
+#                                  PreToolUse layer BEFORE the gates
+#                                  (production layering). Command comes from
+#                                  FABLE_BENCH_RTK_HOOK_CMD (default:
+#                                  `rtk hook claude`). Pairs with
+#                                  "tofable-v4" to measure the rewriter's
+#                                  net effect: token savings vs rework
+#                                  induced by truncated tool output.
 #
 # Environment isolation: every arm runs with --setting-sources "" and
 # --strict-mcp-config, so the host user's settings (hooks, plugins, memory
@@ -57,7 +66,7 @@ FIXTURE="${1:?usage: run.sh <fixture> <model> [run_tag] [harness]}"
 MODEL="${2:?usage: run.sh <fixture> <model> [run_tag] [harness]}"
 TAG="${3:-run}"
 HARNESS="${4:-vanilla}"
-case "$HARNESS" in vanilla|tofable|tofable-compact|tofable-v4) ;; *) echo "harness must be vanilla|tofable|tofable-compact|tofable-v4" >&2; exit 1;; esac
+case "$HARNESS" in vanilla|tofable|tofable-compact|tofable-v4|tofable-rtk) ;; *) echo "harness must be vanilla|tofable|tofable-compact|tofable-v4|tofable-rtk" >&2; exit 1;; esac
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
@@ -87,21 +96,28 @@ if [ -x "$SRC/materialize.sh" ]; then bash "$SRC/materialize.sh" "$RUN/work"; fi
 # Ledger state is isolated per run (FABLE_STATE_DIR inside the run dir) so
 # arms never share bounce/evidence bookkeeping.
 EXTRA_ARGS=()
-if [ "$HARNESS" = "tofable" ] || [ "$HARNESS" = "tofable-compact" ] || [ "$HARNESS" = "tofable-v4" ]; then
+if [ "$HARNESS" = "tofable" ] || [ "$HARNESS" = "tofable-compact" ] || [ "$HARNESS" = "tofable-v4" ] || [ "$HARNESS" = "tofable-rtk" ]; then
   RULES_DIR="$REPO_DIR/rules"
   [ "$HARNESS" = "tofable-compact" ] && RULES_DIR="$REPO_DIR/rules/compact"
   RULES="$(cat "$RULES_DIR/verification.md" "$RULES_DIR/delegation.md" "$RULES_DIR/continuation.md")"
   python3 - "$RUN" "$REPO_DIR" "$HARNESS" <<'PY'
-import json, sys, pathlib
+import json, os, sys, pathlib
 run, repo, harness = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]
 hooks = lambda name: f"python3 {repo}/hooks/{name}"
-v4 = harness == "tofable-v4"
+v4 = harness in ("tofable-v4", "tofable-rtk")
 pre = [{"type": "command", "command": hooks("surfacing-gate.py")}]
 if v4:
     pre.append({"type": "command", "command": hooks("blind-retry-gate.py")})
+pretool = [{"matcher": "Bash", "hooks": pre}]
+if harness == "tofable-rtk":
+    rtk_cmd = os.environ.get("FABLE_BENCH_RTK_HOOK_CMD", "rtk hook claude")
+    # rewriter layer FIRST, as a separate entry, so gates see the same
+    # command stream they would in a production session with the
+    # token-optimizer installed.
+    pretool.insert(0, {"matcher": "Bash", "hooks": [{"type": "command", "command": rtk_cmd}]})
 settings = {
     "hooks": {
-        "PreToolUse": [{"matcher": "Bash", "hooks": pre}],
+        "PreToolUse": pretool,
         "PostToolUse": [{
             "matcher": "Write|Edit|Bash|Task|Agent|Read" if v4 else "Write|Edit|Bash",
             "hooks": [{"type": "command", "command": hooks("verify-ledger.py")}],

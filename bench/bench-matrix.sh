@@ -34,7 +34,8 @@ if [ -n "${FIXTURES_OVERRIDE:-}" ]; then read -r -a FIXTURES <<< "$FIXTURES_OVER
 ARMS=("claude-opus-4-8:vanilla:opus-van" "claude-opus-4-8:tofable:opus-tof"
       "claude-sonnet-5:vanilla:son-van" "claude-sonnet-5:tofable:son-tof"
       "claude-sonnet-5:tofable-compact:son-tofc"
-      "codex-default:codex-van:codex-van" "codex-default:codex-tof:codex-tof")
+      "codex-default:codex-van:codex-van" "codex-default:codex-tof:codex-tof"
+      "claude-sonnet-5:tofable-v4:son-tof4" "claude-sonnet-5:tofable-rtk:son-rtk")
 
 mkdir -p "$RUNS"
 echo "matrix: ${#FIXTURES[@]} fixtures x ${#ARMS[@]} arms x ${SEEDS} seeds -> $RUNS (parallel=$MAXP)"
@@ -55,6 +56,10 @@ for f in "${FIXTURES[@]}"; do
       echo "[$i] launch: $f x $tag"
       runner="$REPO/bench/run.sh"
       case "$harness" in codex-van|codex-tof) runner="$REPO/bench/run-codex.sh";; esac
+    # tofable-rtk needs the rewriter present; skip the arm cleanly if absent
+    if [ "$harness" = "tofable-rtk" ] && [ -z "${FABLE_BENCH_RTK_HOOK_CMD:-}" ] && ! command -v rtk >/dev/null 2>&1; then
+      echo "skip (no rtk on PATH and FABLE_BENCH_RTK_HOOK_CMD unset): $harness"; continue
+    fi
       ( "$runner" "$f" "$model" "$tag" "$harness" >/dev/null 2>&1 \
           && echo "done: $f/$tag" || echo "FAIL: $f/$tag" ) &
       sleep 2
