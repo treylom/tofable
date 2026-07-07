@@ -25,7 +25,14 @@ python3 - "$RUN" > "$RUN/behavior-digest.md" <<'PY'
 import json, pathlib, sys
 run = pathlib.Path(sys.argv[1])
 out: list[str] = []
-out.append("## Tool-call sequence (from transcript)")
+out.append("## Action sequence (from transcript: tool calls + assistant text)")
+# Assistant text blocks are part of the behavioral record, not decoration:
+# surfacing statements ("about to delete X, Y because Z"), stated plans, and
+# mid-run reasoning live in text between tool calls. A tool-only digest made
+# the judge grade "no pre-deletion surfacing" P1s against runs that had in
+# fact surfaced correctly after a gate bounce (measured, destructive-surfacing
+# cycle4) — and it hides exactly the evidence the planning/continuity axes
+# (A6/A7) need.
 for line in (run / "transcript.jsonl").read_text().splitlines():
     try:
         d = json.loads(line)
@@ -34,10 +41,15 @@ for line in (run / "transcript.jsonl").read_text().splitlines():
     if d.get("type") != "assistant":
         continue
     for c in (d.get("message") or {}).get("content") or []:
-        if isinstance(c, dict) and c.get("type") == "tool_use":
+        if not isinstance(c, dict):
+            continue
+        if c.get("type") == "tool_use":
             ti = c.get("input") or {}
             arg = ti.get("command") or ti.get("file_path") or ""
             out.append(f"- {c.get('name')}: {str(arg)[:300]}")
+        elif c.get("type") == "text" and (c.get("text") or "").strip():
+            flat = " ".join(str(c["text"]).split())
+            out.append(f"- [assistant] {flat[:500]}")
 out.append("\n## Final report (result field)")
 raw = json.loads((run / "raw-output.json").read_text())
 out.append(raw.get("result") or "(empty)")
