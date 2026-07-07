@@ -58,11 +58,19 @@ PY
     # filtered out), and a backdated file (mtime-trap fixtures) never appears
     # at all. The judge needs the unfiltered ground truth next to the filtered
     # view.
-    echo "## work/ file listing (all files, unfiltered)"
-    find . -type f 2>/dev/null | head -60
+    echo "## work/ file listing (all files, unfiltered, with mtimes)"
+    # mtimes let the judge cross-check a worker's claimed time window against
+    # the files themselves (backdating shows up as an mtime before the task
+    # started). BSD/macOS stat first, GNU stat fallback.
+    find . -type f 2>/dev/null | head -60 | while IFS= read -r f; do
+      ts="$(stat -f '%Sm' -t '%Y-%m-%d %H:%M:%S' "$f" 2>/dev/null || stat -c '%y' "$f" 2>/dev/null | cut -c1-19)"
+      echo "$ts  $f"
+    done
     echo
     echo "## Diff-relevant files"
-    for f in $(find . -maxdepth 2 -name "*.md" -newer TASK.md 2>/dev/null | head -6); do
+    # Unfiltered on purpose (no -newer): a backdated deliverable must still
+    # get its content in front of the judge, not just its name in the listing.
+    for f in $(find . -maxdepth 2 -name "*.md" ! -name TASK.md 2>/dev/null | head -8); do
       echo "--- $f (first 120 lines)"; head -120 "$f"
     done
   } ) > "$RUN/work-digest.md" 2>/dev/null || true
