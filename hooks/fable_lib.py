@@ -378,15 +378,20 @@ def exit_success(input_data: dict[str, Any], text: str) -> bool | None:
 
 def changed_paths(input_data: dict[str, Any]) -> list[str]:
     tool_name = str(input_data.get("tool_name") or "")
+    # Mutating tools only. Read is on the ledger matcher for delegate-report
+    # evidence (v4.1), but its file_path is NOT a change — recording it marked
+    # merely-read docs as changed and staled prior verifications on every code
+    # read (measured 2026-07-07: stop-verify demanded proof for files the
+    # session only Read).
+    if tool_name not in {"Edit", "Write", "MultiEdit", "NotebookEdit"}:  # MultiEdit — code-review feedback
+        return []
     tool_input = input_data.get("tool_input")
     paths: list[str] = []
     if isinstance(tool_input, dict):
         fp = tool_input.get("file_path")
         if fp:
             paths.append(str(fp))
-    if tool_name in {"Edit", "Write", "MultiEdit", "NotebookEdit"}:  # MultiEdit — code-review feedback
-        return paths or ["edit"]
-    return paths
+    return paths or ["edit"]
 
 
 def changed_kinds(input_data: dict[str, Any]) -> list[str]:
