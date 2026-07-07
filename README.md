@@ -1,5 +1,7 @@
 # tofable
 
+> 🇰🇷 **한국어 버전: [README.ko.md](README.ko.md)**
+
 **A method for transferring "how a strong model works" into a harness — rules + verification gates + a benchmark — so other models inherit the working style.**
 
 > **How this relates to [`fable-ish-codex`](https://github.com/Pandoll-AI/fable-ish-codex):** the hook design here is borrowed from that Codex plugin by Pandoll-AI (credited in [NOTICE](./NOTICE)). What `tofable` contributes on its own: **the benchmark that measures whether the harness actually transfers the working style**, and **a Claude Code port of the gates**. On Codex? The fastest path is to install the original plugin (see [`codex/`](./codex/)) — this repo is where the measurement lives.
@@ -15,8 +17,6 @@ This repo is the public, generalized distribution of that harness. Internal name
 | on **Claude Code**, want the verification gate | copy [`hooks/`](hooks/) and follow the [step-by-step install](hooks/README.md) (~5 min), then seed your rule layer from the examples in [`rules/`](rules/) |
 | on **Codex** | install the upstream plugin [`fable-ish-codex`](https://github.com/Pandoll-AI/fable-ish-codex) instead — see [`codex/README.md`](codex/README.md) |
 | here to **measure** whether a harness actually transfers a working style | start at [Key finding](#key-finding) below, then run [`bench/`](bench/) against your own model |
-
-> 🇰🇷 한국어: **[README.ko.md](README.ko.md)**
 
 ![infographic](./docs/infographic-en.png)
 
@@ -53,7 +53,7 @@ Both columns are the vanilla arm (no harness loaded), so the `fable-5` vs `sonne
 
 The honest, evidence-backed read: **`fable-5`'s edge is judgment under ambiguity — gating a risky step, honoring a constraint, auditing more thoroughly — not a uniform lift.** You'd route mechanical work to the cheaper model. Per-task evidence for every one of these claims is in [`bench/results.md`](bench/results.md).
 
-**How scoring works** (six axes — A1–A5 plus a task-specific SPECIAL — with P0/P1 defect gates, judged on the actual tool-use transcript) and the full **per-task results** are in [`bench/results.md`](bench/results.md); the axes/anchors are in [`bench/rubric.md`](bench/rubric.md) and the judging procedure in [`bench/judge-prompt.md`](bench/judge-prompt.md).
+**How scoring works** (the cycle-1 numbers above were scored under rubric v1 — six axes, A1–A5 plus a task-specific SPECIAL, with P0/P1 defect gates, judged on the actual tool-use transcript; the rubric is now **v2**, adding process axes A6–A8 for planning/continuity/work-product quality) and the full **per-task results** are in [`bench/results.md`](bench/results.md); the axes/anchors are in [`bench/rubric.md`](bench/rubric.md) and the judging procedure in [`bench/judge-prompt.md`](bench/judge-prompt.md).
 
 ## The gates — and what they measurably change
 
@@ -96,7 +96,7 @@ tofable/
 ├── NOTICE                — Apache-2.0 attribution for the ported hook design
 ├── docs/
 │   ├── method.md          — the transfer method: rule patterns, verification ledger/stop-gate, benchmark loop, mining loop
-│   └── infographic-en.png / infographic-ko.png  — summary graphics (en / ko)
+│   └── infographic-en.png / infographic-ko.png  — summary graphics (en / ko; source: infographic-src.html — edit text + re-render to refresh)
 ├── rules/                 — copyable example rule layer (situation index + trigger-keyed rule files)
 ├── hooks/                 — harness-agnostic, generalized verification hooks (evidence ledger + stop-gate)
 │   ├── requirements-lock.py   — opt-in completion-bias guard (locked feature signatures must keep existing)

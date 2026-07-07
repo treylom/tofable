@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=1672, initial-scale=1">
+  <title>tofable infographic v2</title>
+  <style>
+    :root {
+      --navy: #071a3d;
+      --blue: #0c3d8f;
+      --teal: #007f82;
+      --teal-dark: #006c70;
+      --cyan: #eafafa;
+      --line: #0a2352;
+      --soft: #f4fbff;
+      --orange: #f27a14;
+      --red: #d41620;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #ffffff;
+      font-family: Inter, Arial, "Apple SD Gothic Neo", "Noto Sans CJK KR", "Malgun Gothic", sans-serif;
+      color: var(--navy);
+    }
+
+    .canvas {
+      width: 1672px;
+      height: 941px;
+      padding: 32px 46px 30px;
+      border: 5px solid var(--navy);
+      border-radius: 18px;
+      background:
+        radial-gradient(circle at 22% 18%, rgba(0, 127, 130, 0.08), transparent 28%),
+        radial-gradient(circle at 78% 22%, rgba(12, 61, 143, 0.07), transparent 26%),
+        #fff;
+      overflow: hidden;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 36px;
+      line-height: 1.05;
+      font-weight: 900;
+      letter-spacing: 0;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .ko h1 {
+      font-size: 48px;
+    }
+
+    .subtitle {
+      margin-top: 15px;
+      font-size: 30px;
+      font-weight: 800;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .message {
+      margin-top: 18px;
+      min-height: 96px;
+      border: 3px solid var(--line);
+      border-radius: 12px;
+      display: grid;
+      grid-template-columns: 90px 1fr;
+      align-items: center;
+      padding: 14px 32px;
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: inset 0 0 0 2px rgba(12, 61, 143, 0.05);
+    }
+
+    .message-icon {
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--blue), var(--teal));
+      color: #fff;
+      font-size: 43px;
+      font-weight: 900;
+      display: grid;
+      place-items: center;
+      margin-left: 5px;
+    }
+
+    .message-text {
+      font-size: 33px;
+      line-height: 1.22;
+      font-weight: 850;
+    }
+
+    .ko .message-text {
+      font-size: 34px;
+    }
+
+    .central {
+      margin-top: 19px;
+      display: grid;
+      grid-template-columns: 638px 234px 638px;
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .panel {
+      border: 3px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      background: linear-gradient(#ffffff, #f7fcff);
+      min-height: 255px;
+    }
+
+    .panel.on {
+      border-color: var(--teal-dark);
+      background: linear-gradient(#ffffff, #effdfd);
+    }
+
+    .panel-title {
+      height: 60px;
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 33px;
+      font-weight: 900;
+      background: linear-gradient(135deg, #06183b, #0e3f8e);
+    }
+
+    .panel.on .panel-title {
+      background: linear-gradient(135deg, #006c70, #008f8e);
+    }
+
+    .metrics {
+      height: 195px;
+      display: grid;
+      grid-template-columns: 1.22fr 0.9fr 0.85fr;
+      align-items: stretch;
+    }
+
+    .metric {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-left: 2px solid rgba(7, 26, 61, 0.55);
+    }
+
+    .metric:first-child {
+      border-left: 0;
+    }
+
+    .label {
+      font-size: 28px;
+      line-height: 1.02;
+      font-weight: 900;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .metric .value {
+      margin-top: 8px;
+      font-size: 79px;
+      line-height: 0.92;
+      font-weight: 950;
+      color: var(--navy);
+    }
+
+    .metric.comp .value {
+      font-size: 92px;
+    }
+
+    .on .metric .value,
+    .on .label {
+      color: var(--teal-dark);
+    }
+
+    .arrow-box {
+      display: grid;
+      grid-template-rows: 118px 1fr;
+      align-items: center;
+      justify-items: center;
+      color: #fff;
+    }
+
+    .comparison-title {
+      display: none;
+      color: var(--navy);
+      font-size: 22px;
+      font-weight: 900;
+      text-align: center;
+      align-self: end;
+      white-space: nowrap;
+    }
+
+    .arrow {
+      position: relative;
+      width: 210px;
+      height: 74px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(90deg, var(--blue), var(--teal));
+      font-size: 34px;
+      font-weight: 900;
+      clip-path: polygon(0 22%, 72% 22%, 72% 0, 100% 50%, 72% 100%, 72% 78%, 0 78%);
+    }
+
+    .p0-emphasis {
+      align-self: start;
+      margin-top: 18px;
+      color: var(--navy);
+      font-size: 34px;
+      font-weight: 950;
+      white-space: nowrap;
+    }
+
+    .p0-emphasis b:first-of-type {
+      color: var(--red);
+      font-size: 47px;
+    }
+
+    .p0-emphasis b:last-of-type {
+      color: var(--teal-dark);
+      font-size: 47px;
+    }
+
+    .reference {
+      margin: 13px auto 0;
+      width: 900px;
+      height: 52px;
+      border: 3px solid var(--line);
+      border-radius: 9px;
+      display: grid;
+      place-items: center;
+      font-size: 28px;
+      font-weight: 850;
+      background: #fff;
+      white-space: nowrap;
+    }
+
+    .midchips {
+      margin-top: 13px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1.38fr;
+      gap: 13px;
+    }
+
+    .chip {
+      min-height: 114px;
+      border: 3px solid var(--teal-dark);
+      border-radius: 10px;
+      background: rgba(244, 255, 255, 0.92);
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      align-items: center;
+      padding: 13px 20px;
+    }
+
+    .chip.axis {
+      grid-template-columns: 102px 1fr;
+    }
+
+    .chip .icon {
+      width: 67px;
+      height: 67px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--teal), var(--blue));
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-size: 37px;
+      font-weight: 900;
+    }
+
+    .chip-text {
+      font-size: 26px;
+      line-height: 1.16;
+      font-weight: 850;
+      color: var(--teal-dark);
+    }
+
+    .chip-text .big {
+      font-size: 43px;
+      font-weight: 950;
+      letter-spacing: 0;
+    }
+
+    .axis .chip-text {
+      color: var(--navy);
+      font-size: 20px;
+      line-height: 1.18;
+    }
+
+    .facts {
+      margin-top: 15px;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 18px;
+    }
+
+    .fact {
+      min-height: 130px;
+      border: 3px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.96);
+      display: grid;
+      grid-template-columns: 102px 1fr;
+      align-items: center;
+      padding: 14px 24px;
+    }
+
+    .num {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #06183b, #0d47a1);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 48px;
+      font-weight: 950;
+    }
+
+    .fact-text {
+      font-size: 26px;
+      line-height: 1.18;
+      font-weight: 850;
+      word-break: keep-all;
+      overflow-wrap: normal;
+      hyphens: none;
+    }
+
+    .ko .fact-text {
+      font-size: 25px;
+      line-height: 1.24;
+    }
+
+    .ko .chip-text {
+      font-size: 27px;
+    }
+
+    .ko .axis .chip-text {
+      font-size: 21px;
+      line-height: 1.26;
+    }
+  </style>
+</head>
+<body>
+  <main id="app" class="canvas"></main>
+  <script>
+    const DATA = {
+      en: {
+        className: "",
+        title: "tofable — Transferring a strong model's working style into a harness (Cycle 5 · 2026-07-07)",
+        subtitle: "pass KPI: P0/P1 defects = 0 · cross-model judge · 215+ runs",
+        message: "Switch the harness on and the cheap model's critical defects disappear — the bar is defect counts, not averages.",
+        comparison: "sonnet-5, Harness OFF → ON",
+        left: "OFF (vanilla)",
+        right: "ON (tofable)",
+        reference: "opus-5 — composite 88.5 → 89.7 · P1 4 → 3 (no regression)",
+        evidence1: ["absence trap", "75.6 → 96.3", "(absence-gate)"],
+        evidence2: ["numeric-claim trap", "87.9 → 94.2", "(claim-evidence-gate)"],
+        axis: "New axes beyond pass/fail: planning · continuity · work-product quality — first observation: planning is the lowest axis in every run scored so far → next transfer target.",
+        facts: [
+          "The judge gets audited too — 3 false-positive causes found & fixed",
+          "Gates mined from 23 real work sessions (behavior catalog C1–C15)",
+          "pass = P0 = 0 AND P1 = 0 (averages are context — ceiling tasks pad them)"
+        ]
+      },
+      ko: {
+        className: "ko",
+        title: "tofable — 강한 모델의 일하는 방식을 하네스로 이전 (Cycle 5 · 2026-07-07)",
+        subtitle: "합격 KPI: P0/P1 결함 0 · 교차 채점 · 215+ 런",
+        message: "하네스(규칙+게이트)를 켜면 싼 모델의 심각 결함이 사라진다 — 합격 기준도 평균이 아니라 결함 수.",
+        comparison: "sonnet-5, 하네스 OFF → ON",
+        left: "하네스 OFF (vanilla)",
+        right: "하네스 ON (tofable)",
+        reference: "opus-5 — composite 88.5 → 89.7 · P1 4 → 3 (no regression)",
+        evidence1: ["absence trap", "75.6 → 96.3", "(absence-gate)"],
+        evidence2: ["numeric-claim trap", "87.9 → 94.2", "(claim-evidence-gate)"],
+        axis: "통과·완수 너머 신규 축: 계획 · 연속 진행 · 산출물 품질 — 첫 관측: 계획 축이 채점한 전 런에서 최저 → 다음 이식 타깃.",
+        facts: [
+          "판사도 검증 대상 — 오탐 원인 3종 규명·수술",
+          "실로그 23세션 채굴 → 행동 카탈로그 C1~C15",
+          "합격 = P0·P1 결함 0 (평균은 참고치)"
+        ]
+      }
+    };
+
+    const lang = new URLSearchParams(location.search).get("lang") === "ko" ? "ko" : "en";
+    const d = DATA[lang];
+    document.documentElement.lang = lang;
+    const app = document.getElementById("app");
+    app.className = `canvas ${d.className}`;
+    app.innerHTML = `
+      <h1>${d.title}</h1>
+      <div class="subtitle">${d.subtitle}</div>
+      <section class="message">
+        <div class="message-icon">✓</div>
+        <div class="message-text">${d.message}</div>
+      </section>
+      <section class="central">
+        <div class="panel off">
+          <div class="panel-title">${d.left}</div>
+          <div class="metrics">
+            <div class="metric comp"><div class="label">composite</div><div class="value">86.2</div></div>
+            <div class="metric"><div class="label">P0 (critical)</div><div class="value">1</div></div>
+            <div class="metric"><div class="label">P1 (major)</div><div class="value">5</div></div>
+          </div>
+        </div>
+        <div class="arrow-box">
+          <div class="comparison-title">${d.comparison}</div>
+          <div class="arrow">sonnet-5</div>
+          <div class="p0-emphasis">P0 <b>1</b> → <b>0</b></div>
+        </div>
+        <div class="panel on">
+          <div class="panel-title">${d.right}</div>
+          <div class="metrics">
+            <div class="metric comp"><div class="label">composite</div><div class="value">89.6</div></div>
+            <div class="metric"><div class="label">P0 (critical)</div><div class="value">0</div></div>
+            <div class="metric"><div class="label">P1 (major)</div><div class="value">3</div></div>
+          </div>
+        </div>
+      </section>
+      <div class="reference">${d.reference}</div>
+      <section class="midchips">
+        <div class="chip">
+          <div class="icon">✓</div>
+          <div class="chip-text">${d.evidence1[0]}<br><span class="big">${d.evidence1[1]}</span><br>${d.evidence1[2]}</div>
+        </div>
+        <div class="chip">
+          <div class="icon">⌕</div>
+          <div class="chip-text">${d.evidence2[0]}<br><span class="big">${d.evidence2[1]}</span><br>${d.evidence2[2]}</div>
+        </div>
+        <div class="chip axis">
+          <div class="icon">↗</div>
+          <div class="chip-text">${d.axis}</div>
+        </div>
+      </section>
+      <section class="facts">
+        ${d.facts.map((f, i) => `<div class="fact"><div class="num">${i + 1}</div><div class="fact-text">${f}</div></div>`).join("")}
+      </section>
+    `;
+  </script>
+</body>
+</html>

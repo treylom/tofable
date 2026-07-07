@@ -53,7 +53,7 @@
 
 정직한 결론: **`fable-5`의 강점은 모호함 속 판단 — 위험한 단계에 게이트 걸기·제약 지키기·더 철저히 감사하기 — 이지 전반적 우위가 아니다.** 기계적 작업은 더 싼 모델로 라우팅하는 게 맞다. 과제별 근거는 [`bench/results.md`](bench/results.md)에.
 
-**채점 방식**(여섯 축 — A1–A5 + 과제별 SPECIAL — P0/P1 결함 게이트, 실제 도구사용 transcript로 판정)과 **과제별 결과** 전문은 [`bench/results.md`](bench/results.md)에 있다. 축·기준점은 [`bench/rubric.md`](bench/rubric.md), 채점 절차는 [`bench/judge-prompt.md`](bench/judge-prompt.md)를 보라.
+**채점 방식**(위 cycle-1 수치는 rubric **v1**으로 채점 — 여섯 축, A1–A5 + 과제별 SPECIAL, P0/P1 결함 게이트, 실제 도구사용 transcript로 판정. rubric은 현재 **v2**로 계획·연속 진행·산출물 품질 축 A6–A8이 추가됐다)과 **과제별 결과** 전문은 [`bench/results.md`](bench/results.md)에 있다. 축·기준점은 [`bench/rubric.md`](bench/rubric.md), 채점 절차는 [`bench/judge-prompt.md`](bench/judge-prompt.md)를 보라.
 
 ## 게이트 — 그리고 실측으로 확인된 변화
 
@@ -96,7 +96,7 @@ tofable/
 ├── NOTICE                      — 이식한 훅 설계의 Apache-2.0 출처 표기
 ├── docs/
 │   ├── method.md                — 이전 방법: 규칙 패턴, 검증 원장/스톱게이트, 벤치 루프, 채굴 루프
-│   └── infographic-en.png / infographic-ko.png  — 요약 그래픽 (en / ko)
+│   └── infographic-en.png / infographic-ko.png  — 요약 그래픽 (en / ko; 소스 infographic-src.html — 텍스트 수정 후 재렌더로 갱신)
 ├── rules/                       — 복사해 쓰는 규칙 층 예시 (상황 인덱스 + 트리거별 규칙 파일)
 ├── hooks/                       — 일반화된 검증 훅 (증거 원장 + 스톱게이트)
 ├── bench/                       — 하네스 의존 vs 일반 추론 과제셋·채점·결과
