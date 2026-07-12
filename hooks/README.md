@@ -37,6 +37,10 @@ way through, that's a bug in the gate — file it.
 | `continuation-gate.py` | if the final message declares an early stop or deferral ("I'll finish tomorrow") while work may remain, bounces the stop once with the three questions from [`../rules/continuation.md`](../rules/continuation.md). Capped at 1/session, fail-open. | `Stop` |
 | `surfacing-gate.py` | if a Bash command carries a destructive token (recursive/forced `rm`, force-push, `reset --hard`, `find -delete`, `rsync --delete`, …), bounces it once and asks for the op, targets, and safety rationale in the visible reply; the identical command passes on retry. Capped per command + 5/session, fail-open. | `PreToolUse` |
 | `blind-retry-gate.py` | if the immediately preceding Bash command failed and the incoming call re-runs it byte-identical, bounces once: name the failure cause, run one probe, or change the command. The identical re-run passes after the bounce (a deliberate transient-flake retry costs one bounce); any different command resets the chain. Capped 5/session, fail-open. | `PreToolUse` |
+| `prompt-advance-gate.py` | if the transcript shows a requirement-crystallizing phase happened (interview / brainstorming / plan-mode exit) but no prompt-engineering pass followed, bounces the next Write/Edit/Task once: refine the task into a real prompt/spec before executing. Capped 1/session, fail-open. Claude Code only today (no Codex port yet). | `PreToolUse` |
+| `cutover-review-gate.py` *(opt-in)* | if the final message declares a cutover/deploy/go-live complete but no reviewer verdict (PASS/GREEN in a review context) exists anywhere in the transcript, bounces once — solo deploys are a recurring friction class. | `Stop` |
+| `requirements-lock.py` *(opt-in)* | completion-bias guard: lock code signatures in a project-root `requirements.lock`; if a locked signature disappears from the tree ("fixed" the error by deleting the feature), the stop bounces with the missing list. No lock file = no-op. | `Stop` |
+| `branch-stray-guard.sh` *(opt-in)* | warns when an unattended auto-commit lands knowledge/note files on a non-default branch, where they vanish from the default branch's history. | `Stop` |
 
 ## Install (Claude Code)
 
@@ -57,8 +61,13 @@ cp tofable/hooks/fable_lib.py tofable/hooks/verify-ledger.py \
    tofable/hooks/stop-verify-gate.py \
      tofable/hooks/continuation-gate.py \
      tofable/hooks/surfacing-gate.py \
-     tofable/hooks/blind-retry-gate.py ~/.claude/fable-hooks/
+     tofable/hooks/blind-retry-gate.py \
+     tofable/hooks/prompt-advance-gate.py ~/.claude/fable-hooks/
 ```
+
+(The three opt-in gates — `cutover-review-gate.py`, `requirements-lock.py`,
+`branch-stray-guard.sh` — install the same way when you want them; see their
+rows above and their file headers.)
 
 **2. Wire them into `~/.claude/settings.json`.**
 
@@ -75,11 +84,17 @@ don't overwrite existing hooks). Use the **absolute path** from step 1:
           { "type": "command", "command": "python3 $HOME/.claude/fable-hooks/surfacing-gate.py" },
           { "type": "command", "command": "python3 $HOME/.claude/fable-hooks/blind-retry-gate.py" }
         ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit|Task|Agent",
+        "hooks": [
+          { "type": "command", "command": "python3 $HOME/.claude/fable-hooks/prompt-advance-gate.py" }
+        ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "Write|Edit|Bash|Task|Agent|Read",
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash|Task|Agent|Read",
         "hooks": [
           { "type": "command", "command": "python3 $HOME/.claude/fable-hooks/verify-ledger.py" }
         ]
@@ -87,7 +102,7 @@ don't overwrite existing hooks). Use the **absolute path** from step 1:
     ],
     "PostToolUseFailure": [
       {
-        "matcher": "Write|Edit|Bash|Task|Agent|Read",
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash|Task|Agent|Read",
         "hooks": [
           { "type": "command", "command": "python3 $HOME/.claude/fable-hooks/verify-ledger.py" }
         ]
@@ -106,7 +121,8 @@ don't overwrite existing hooks). Use the **absolute path** from step 1:
 ```
 
 `verify-ledger.py` goes on `PostToolUse` (matched to the tools that change
-state or delegate work — `Write|Edit|Bash|Task|Agent|Read`; the `Task|Agent`
+state or delegate work — `Write|Edit|MultiEdit|NotebookEdit|Bash|Task|Agent|Read`,
+each named explicitly rather than relying on substring luck; the `Task|Agent`
 part anchors the subordinate-evidence check, so include it even if your
 sessions rarely delegate. `Read` anchors that check's file-mediated
 variant: reading a delegate-report file — a path matching
@@ -122,8 +138,8 @@ routes failing tool calls to that event only (verified empirically
 2026-07-12 — a failing Bash never reached `PostToolUse`). Without this
 wiring the ledger records no failures, and the blind-retry gate never arms
 on a genuinely failed command. On harnesses whose `PostToolUse` still fires
-for failures, the double wiring is harmless — the recorder is idempotent
-per event.
+for failures, the double wiring is harmless — a double-recorded failure
+over-counts the ledger's telemetry but never double-blocks anything.
 
 > **If you already have `PostToolUse` or `Stop` hooks**, don't paste this
 > block over the existing key — that silently clobbers them. `PostToolUse`
@@ -162,5 +178,8 @@ Environment variables, read by `fable_lib.py`:
 The gate is deliberately narrow: it only fires on harness/code-surface
 changes, never on plain notes/markdown, and it's capped at
 `MAX_STOP_BLOCKS` bounces so it can't loop forever on genuinely-stuck work.
-It fails open — any exception in the hook exits cleanly rather than wedging
-your session.
+Note the caps' semantics: each budget is a **session-wide total for that
+gate class, not N bounces per violation** — once a class's budget is spent,
+later violations of that class pass without friction for the rest of the
+session. It fails open — any exception in the hook exits cleanly rather
+than wedging your session.

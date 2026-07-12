@@ -19,6 +19,8 @@ GATES = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(GATES))
 import lib  # noqa: E402
 
+from test_support import EXAMPLE_CWD, blocked, run_hook  # noqa: E402
+
 WORKER = r"""
 import sys, time
 sys.path.insert(0, sys.argv[1])
@@ -84,6 +86,38 @@ class CodexTranscriptTailTests(unittest.TestCase):
             lines = [assistant_line("stale head message")] + [filler_line(i) for i in range(n_filler)]
             path = self.write(Path(tmp), lines)
             self.assertEqual(lib.last_assistant_text_from_transcript(path), "")
+
+
+class CodexTurnLedgerPersistenceTests(unittest.TestCase):
+    """Regression (2026-07-13 rereview C4): UserPromptSubmit fires on every
+    user TURN, not once per session — it must seed the ledger only on first
+    touch, never wipe pending verification obligations from an earlier turn.
+    (The ledger is already per-session: its key hashes session_id.)
+    """
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory(prefix="tofable-codex-c4-")
+        self.env = {"FABLE_STATE_DIR": self.tmp.name}
+        self.session = {"session_id": "c4-sess", "cwd": EXAMPLE_CWD}
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def test_next_turn_does_not_erase_pending_obligation(self) -> None:
+        # turn N: a code change lands, unverified
+        run_hook(
+            GATES / "post_tool_use.py",
+            {**self.session, "tool_name": "Write", "tool_input": {"file_path": f"{EXAMPLE_CWD}/src/app.py"}},
+            self.env,
+        )
+        # turn N+1: the next user message arrives
+        run_hook(GATES / "user_prompt_submit.py", {**self.session}, self.env)
+        # stopping without any verification must still bounce
+        self.assertTrue(blocked(run_hook(GATES / "stop_gate.py", {**self.session}, self.env)))
+
+    def test_first_touch_still_seeds_a_ledger(self) -> None:
+        run_hook(GATES / "user_prompt_submit.py", {**self.session}, self.env)
+        self.assertEqual(len(list(Path(self.tmp.name).rglob("*.json"))), 1)
 
 
 if __name__ == "__main__":

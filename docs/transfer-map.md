@@ -35,7 +35,7 @@ Verified against a live install of each harness (2026-07-12):
 | before a tool runs | `PreToolUse` (matcher, can deny) | `PreToolUse` (matcher, can deny) | surfacing-gate, blind-retry-gate, prompt-advance |
 | after a tool returns | `PostToolUse` (matcher) | `PostToolUse` (matcher) | verify-ledger (records only) |
 | agent wants to stop | `Stop` (can block) | `Stop` (can block) | stop-verify (3 checks), subordinate-evidence, continuation-gate |
-| subagent stops | `SubagentStop` | — | (unused so far; candidate for delegate-evidence capture) |
+| subagent stops | `SubagentStop` | — | verify-ledger (delegate anchor — records the delegate's return so the subordinate-evidence check demands verification *after* it) |
 | pre-compaction | `PreCompact` | — | state-of-truth flush (keeps discipline context across compaction) |
 | session end | `SessionEnd` | — | (unused) |
 
@@ -57,7 +57,7 @@ check possible or wanted).
 | 4 | don't conclude absence from a shallow look | ✅ absence check (Stop) | (write your own — boundary expansion) | step 2 |
 | 5 | surface destructive actions before running them | ✅ `surfacing-gate` (PreToolUse) | — | step 2 |
 | 6 | diagnose before re-attacking a failure | ✅ `blind-retry-gate` (PreToolUse) | — | step 2 |
-| 7 | refine the task into a real prompt/spec before executing | ✅ `prompt-advance` (PreToolUse) | — | step 1 (+ `/prompt` integration with plain-prompting fallback) |
+| 7 | refine the task into a real prompt/spec before executing | ✅ `prompt-advance` (PreToolUse — Claude Code only today; no Codex port yet, registered under Codex parity rules) | — | step 1 (+ `/prompt` integration with plain-prompting fallback) |
 | 8 | no silent deferral while work remains | ✅ `continuation-gate` (Stop) | `continuation.md` (waiting / hung / dead triage) | step 3 |
 | 9 | honest decomposition into verifiable units | ◻ (not mechanizable without false positives) | — | step 0 |
 | 10 | report blockers immediately, with whose-decision routing | ◻ | `continuation.md` | step 3 |
@@ -100,6 +100,11 @@ can actually exist for a given change kind.
 - Every gate that lands in `hooks/` (Claude) must land in `codex/gates/`
   (Codex) in the same change, or state why not — the two ports share ledger
   schema and the parity test suite (`codex/gates/tests/`).
+- Registered exceptions (stated per the rule above): `prompt-advance-gate`
+  has no Codex port yet (its trigger reads Claude-transcript plan/interview
+  markers that need a Codex-side equivalent first); the opt-in gates
+  (`cutover-review`, `requirements-lock`, `branch-stray-guard`) are
+  Claude-side only until someone actually opts in on Codex.
 - Codex skill form: the same skill directory ships in a plugin with a
   `.codex-plugin/plugin.json` (`"skills": "./skills/"`); slash commands do
   not exist on Codex, so anything shipped as a Claude `commands/*.md` needs
@@ -115,3 +120,9 @@ can actually exist for a given change kind.
   arms); SubagentStop as delegate anchor; known gap registered: per-delegate
   verification anchors for parallel delegation (subordinate-evidence
   currently session-scoped).
+- 2026-07-13 (rereview) — line-by-line rereview fixes: bare "N개" Korean
+  phrasing no longer reads as a count claim; ledger load→save serialized
+  with flock; Stop-time transcript reads capped to a 400KB tail; Codex
+  `UserPromptSubmit` now seeds the ledger on first touch only (it was
+  wiping pending obligations every user turn); prompt-advance parity gap
+  registered above.
