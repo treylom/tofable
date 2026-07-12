@@ -70,6 +70,12 @@ DEFAULT_LEDGER: dict[str, Any] = {
     "event_seq": 0,          # monotonic event counter (code-review feedback — closes the
                               # "verify succeeds, then code changes" ordering bypass)
     "last_gated_seq": 0,     # event_seq of the most recent gated (harness/code) change
+    # --- ledger v5.1 (2026-07-12 log-mining: 542-ledger readout) ---
+    "last_gated_exec_seq": 0,  # event_seq of the most recent *executable* gated change
+                               # (code/config/settings, or non-prose harness file) —
+                               # the ordering anchor verification staleness is judged
+                               # against; prose harness edits (.md rules/skills) no
+                               # longer stale prior verifications
     "last_updated": "",
 }
 
@@ -248,7 +254,7 @@ def load_ledger(input_data: dict[str, Any]) -> dict[str, Any]:
     for key in ("changed_paths", "change_kinds", "verification_commands", "verification_results", "failures", "surfaced_ops", "git_commands", "retry_bounced"):
         if not isinstance(ledger.get(key), list):
             ledger[key] = []
-    for key in ("event_seq", "last_gated_seq", "stop_blocks", "continuation_blocks", "surfacing_blocks", "absence_blocks", "claim_blocks", "retry_blocks", "subagent_seq", "delegate_report_seq", "subagent_blocks"):
+    for key in ("event_seq", "last_gated_seq", "last_gated_exec_seq", "stop_blocks", "continuation_blocks", "surfacing_blocks", "absence_blocks", "claim_blocks", "retry_blocks", "subagent_seq", "delegate_report_seq", "subagent_blocks"):
         if not isinstance(ledger.get(key), int):
             ledger[key] = 0
     for key in ("boundary_expansion_seen", "last_bash_failed", "prompt_gate_bounced"):
@@ -306,6 +312,16 @@ def classify_path_kind(path_value: str) -> str:
     if suffix in CONFIG_EXTS:
         return "config"
     return "docs"  # plain notes/docs/other = exempt kind
+
+
+PROSE_EXTS = {".md", ".markdown", ".txt"}
+
+
+def is_prose_path(path_value: str) -> bool:
+    """Prose files inside the harness surface (rule/skill/command .md) are
+    still gated (a change with no verification at all keeps bouncing), but
+    they don't stale prior verifications — see has_successful_verification."""
+    return Path(path_value.replace("\\", "/")).suffix.lower() in PROSE_EXTS
 
 
 def read_stdin_json() -> dict[str, Any]:
@@ -509,12 +525,23 @@ def gated_kinds(ledger: dict[str, Any]) -> set[str]:
 
 
 def has_successful_verification(ledger: dict[str, Any]) -> bool:
-    """Only a successful verification **after** the last gated change counts
-    (closes the "verify first, then change code" ordering bypass — code-review
-    feedback)."""
-    last_gated = int(ledger.get("last_gated_seq") or 0)
+    """Only a successful verification **after** the last *executable* gated
+    change counts (closes the "verify first, then change code" ordering
+    bypass — code-review feedback).
+
+    Ledger v5.1 refinement: the ordering anchor is last_gated_exec_seq
+    (code/config/settings, non-prose harness files), not last_gated_seq.
+    Measured across 542 real session ledgers (2026-07-12): 468 sessions
+    bounced at stop and ALL 468 already carried verification evidence — the
+    dominant pattern was "verify the code, then edit a rules/skills .md
+    last", which the strict anchor turned into a near-universal one-bounce
+    friction tax (~96% of change sessions). Prose harness edits still gate
+    (no verification at all keeps blocking) but no longer stale a
+    verification that already succeeded earlier in the session.
+    """
+    anchor = int(ledger.get("last_gated_exec_seq") or 0)
     return any(
-        r.get("success") is True and int(r.get("seq") or 0) >= last_gated
+        r.get("success") is True and int(r.get("seq") or 0) >= anchor
         for r in ledger.get("verification_results", [])
     )
 

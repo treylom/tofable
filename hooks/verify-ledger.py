@@ -19,10 +19,12 @@ try:
         add_unique,
         changed_kinds,
         changed_paths,
+        classify_path_kind,
         command_from_input,
         delegate_report_read,
         detect_failure,
         git_usage_record,
+        is_prose_path,
         load_ledger,
         read_stdin_json,
         save_ledger,
@@ -58,7 +60,20 @@ def main() -> int:
             add_unique(ledger, "changed_paths", [p.strip() for p in paths if p])
             add_unique(ledger, "change_kinds", kinds)
             if any(k in {"harness", "code", "config"} for k in kinds):
-                ledger["last_gated_seq"] = seq  # gated change → prior verifications go stale
+                ledger["last_gated_seq"] = seq
+                # ledger v5.1 — only *executable* gated changes stale prior
+                # verifications. Prose harness edits (.md rules/skills) keep
+                # the audit trail but don't move the ordering anchor.
+                if paths:
+                    exec_gated = any(
+                        classify_path_kind(p.strip()) in {"code", "config"}
+                        or (classify_path_kind(p.strip()) == "harness" and not is_prose_path(p.strip()))
+                        for p in paths if p
+                    )
+                else:
+                    exec_gated = True  # mutating bash on harness surface — no path, stay conservative
+                if exec_gated:
+                    ledger["last_gated_exec_seq"] = seq
         if verification:
             verification["seq"] = seq
             ledger["verification_results"].append(verification)

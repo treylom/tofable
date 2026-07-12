@@ -131,6 +131,40 @@ class FableGateTests(unittest.TestCase):
         self.record_change(f"{EXAMPLE_CWD}/.claude/hooks/me.py", tool="MultiEdit")
         self.assertTrue(blocked(self.stop()), "MultiEdit changes are gated too")
 
+    # ---------- ledger v5.1: prose harness edits don't stale verifications ----------
+    def test_deep_prose_edit_after_verify_passes(self) -> None:
+        """The 542-ledger readout pattern: verify the code, then edit a rules .md
+        last. v5.1 anchors ordering on executable changes only — this must pass."""
+        self.record_change(f"{EXAMPLE_CWD}/.claude/hooks/z.py")
+        self.record_verify("python3 -m unittest z_test", "OK passed", 0)
+        self.record_change(f"{EXAMPLE_CWD}/.claude/rules/note.md")
+        self.assertFalse(blocked(self.stop()), "a prose rules edit after a successful verification must not re-block")
+
+    def test_deep_exec_edit_after_verify_still_blocks(self) -> None:
+        """Ordering stays strict for executable files even under v5.1."""
+        self.record_change(f"{EXAMPLE_CWD}/.claude/hooks/w.py")
+        self.record_verify("python3 -m unittest w_test", "OK passed", 0)
+        self.record_change(f"{EXAMPLE_CWD}/.claude/hooks/w2.py")
+        self.assertTrue(blocked(self.stop()), "an executable change after the verification is stale evidence — must block")
+
+    def test_deep_prose_only_without_verify_still_blocks(self) -> None:
+        """Prose harness edits stay gated: with no verification at all, block."""
+        self.record_change(f"{EXAMPLE_CWD}/.claude/rules/only.md")
+        self.assertTrue(blocked(self.stop()), "prose harness edit with zero verification must still block")
+
+    def test_deep_prose_only_with_earlier_verify_passes(self) -> None:
+        """Verify first, then a prose-only harness edit: exec anchor stays 0 → passes."""
+        self.record_verify("grep -c 'marker' docs/spec.md", "3", 0)
+        self.record_change(f"{EXAMPLE_CWD}/.claude/rules/later.md")
+        self.assertFalse(blocked(self.stop()), "prose-only edits must accept an earlier successful verification")
+
+    def test_boundary_prose_does_not_move_exec_anchor(self) -> None:
+        self.record_change(f"{EXAMPLE_CWD}/.claude/hooks/anchor.py")
+        self.record_change(f"{EXAMPLE_CWD}/.claude/rules/prose.md")
+        data = json.loads(self.ledger_files()[0].read_text())
+        self.assertEqual(data["last_gated_exec_seq"], 1, "exec anchor = the .py change")
+        self.assertEqual(data["last_gated_seq"], 2, "audit anchor = the latest gated change")
+
     # ---------- tier 3: boundary ----------
     def test_boundary_stop_hook_active_passes(self) -> None:
         self.record_change(f"{EXAMPLE_CWD}/.claude/hooks/y.py")

@@ -51,6 +51,9 @@ DEFAULT_LEDGER: dict[str, Any] = {
     "subagent_blocks": 0,
     "event_seq": 0,
     "last_gated_seq": 0,
+    # ledger v5.1 (2026-07-12): ordering anchor for verification staleness —
+    # only executable gated changes move it; prose harness edits don't.
+    "last_gated_exec_seq": 0,
     "last_updated": "",
 }
 
@@ -221,7 +224,7 @@ def load_ledger(input_data: dict[str, Any]) -> dict[str, Any]:
     for key in ("changed_paths", "change_kinds", "verification_commands", "verification_results", "failures", "surfaced_ops", "git_commands", "retry_bounced"):
         if not isinstance(ledger.get(key), list):
             ledger[key] = []
-    for key in ("event_seq", "last_gated_seq", "stop_blocks", "continuation_blocks", "surfacing_blocks", "absence_blocks", "claim_blocks", "retry_blocks", "subagent_seq", "delegate_report_seq", "subagent_blocks"):
+    for key in ("event_seq", "last_gated_seq", "last_gated_exec_seq", "stop_blocks", "continuation_blocks", "surfacing_blocks", "absence_blocks", "claim_blocks", "retry_blocks", "subagent_seq", "delegate_report_seq", "subagent_blocks"):
         if not isinstance(ledger.get(key), int):
             ledger[key] = 0
     for key in ("boundary_expansion_seen", "last_bash_failed"):
@@ -359,6 +362,15 @@ def exit_success(input_data: dict[str, Any], text: str) -> bool | None:
     return None
 
 
+PROSE_EXTS = {".md", ".markdown", ".txt"}
+
+
+def is_prose_path(path_value: str) -> bool:
+    """Prose files inside the harness surface stay gated but don't stale prior
+    verifications — see has_successful_verification (v5.1)."""
+    return Path(path_value.replace("\\", "/")).suffix.lower() in PROSE_EXTS
+
+
 def classify_path_kind(path_value: str) -> str:
     p = path_value.replace("\\", "/")
     if p in {"patch", "edit"}:
@@ -492,11 +504,16 @@ def gated_kinds(ledger: dict[str, Any]) -> set[str]:
 
 
 def has_successful_verification(ledger: dict[str, Any]) -> bool:
-    last_gated = int(ledger.get("last_gated_seq") or 0)
+    # v5.1: anchor on the last *executable* gated change (code/config/settings,
+    # non-prose harness). Prose harness edits (.md rules/skills) stay gated but
+    # no longer stale a verification that already succeeded — measured across
+    # 542 real session ledgers (2026-07-12): 468 stop-bounces, all of which
+    # already carried verification evidence ("verify code, edit rules .md last").
+    anchor = int(ledger.get("last_gated_exec_seq") or 0)
     return any(
         isinstance(record, dict)
         and record.get("success") is True
-        and int(record.get("seq") or 0) >= last_gated
+        and int(record.get("seq") or 0) >= anchor
         for record in ledger.get("verification_results", [])
     )
 
