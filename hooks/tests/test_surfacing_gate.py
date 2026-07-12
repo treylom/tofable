@@ -128,5 +128,49 @@ class SurfacingGateTests(unittest.TestCase):
         self.assertFalse(denied(proc), proc.stdout)
 
 
+class ContentPatternSearchExemptionTests(unittest.TestCase):
+    """Regression (2026-07-13 rereview C9a): the two content patterns
+    (shutil.rmtree, DROP TABLE/DATABASE/SCHEMA) live inside quoted program
+    text, so they cannot be command-anchored — but a read-only search/filter
+    pipeline that merely MENTIONS them must pass, while actual inline
+    execution keeps bouncing.
+    """
+
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp(prefix="fable-surf-content-"))
+        self.env = {"FABLE_STATE_DIR": str(self.tmp / "state")}
+
+    def payload(self, command: str, session: str = "c1") -> dict:
+        return {
+            "tool_name": "Bash",
+            "tool_input": {"command": command},
+            "cwd": EXAMPLE_CWD,
+            "session_id": session,
+        }
+
+    def test_grep_for_rmtree_passes(self) -> None:
+        proc = run_gate(self.payload('grep -rn "shutil.rmtree(" src/'), self.env)
+        self.assertFalse(denied(proc), proc.stdout)
+
+    def test_search_pipe_for_drop_table_passes(self) -> None:
+        proc = run_gate(self.payload('rg "DROP TABLE" migrations/ | head -5'), self.env)
+        self.assertFalse(denied(proc), proc.stdout)
+
+    def test_inline_python_rmtree_still_denied(self) -> None:
+        proc = run_gate(self.payload("python3 -c \"import shutil; shutil.rmtree('build')\""), self.env)
+        self.assertTrue(denied(proc), proc.stdout)
+
+    def test_sql_client_drop_still_denied(self) -> None:
+        proc = run_gate(self.payload('psql -d app -c "DROP TABLE users"', session="c2"), self.env)
+        self.assertTrue(denied(proc), proc.stdout)
+
+    def test_mixed_pipeline_is_not_exempt(self) -> None:
+        proc = run_gate(
+            self.payload("grep foo src/ && python3 -c \"import shutil; shutil.rmtree('x')\"", session="c3"),
+            self.env,
+        )
+        self.assertTrue(denied(proc), proc.stdout)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

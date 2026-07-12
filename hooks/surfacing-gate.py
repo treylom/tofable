@@ -50,11 +50,39 @@ DESTRUCTIVE_PATTERNS = [
     CMD_ANCHOR + r"find\b[^\n;|&]*\s-delete\b",
     CMD_ANCHOR + r"(?:rmdir|shred|mkfs\.[a-z0-9]+)\b",
     CMD_ANCHOR + r"truncate\s+-s\s*0\b",
-    r"\bshutil\.rmtree\s*\(",
-    r"\bDROP\s+(?:TABLE|DATABASE|SCHEMA)\b",
     CMD_ANCHOR + r"rsync\b[^\n]*--delete\b",
 ]
+# Content patterns live inside quoted program text (`python3 -c "...
+# shutil.rmtree(...)"`, SQL handed to a client), so they cannot be
+# command-anchored. Instead, a pure read-only search/filter pipeline that
+# merely MENTIONS them is exempted (2026-07-13 rereview C9a) — it cannot
+# execute them, and bouncing a grep for dangerous code punished exactly the
+# kind of careful auditing the gates exist to encourage.
+DESTRUCTIVE_CONTENT_PATTERNS = [
+    r"\bshutil\.rmtree\s*\(",
+    r"\bDROP\s+(?:TABLE|DATABASE|SCHEMA)\b",
+]
 DESTRUCTIVE_RE = re.compile("|".join(DESTRUCTIVE_PATTERNS), re.IGNORECASE)
+DESTRUCTIVE_CONTENT_RE = re.compile("|".join(DESTRUCTIVE_CONTENT_PATTERNS), re.IGNORECASE)
+READONLY_SEGMENT_RE = re.compile(
+    r"^(?:grep|rg|ag|ack|egrep|fgrep|head|tail|wc|sort|uniq|cut|awk|sed|cat|echo|less|find|ls|git\s+(?:grep|log|show|diff))\b",
+    re.IGNORECASE,
+)
+
+
+def readonly_search_pipeline(command: str) -> bool:
+    segments = [s.strip() for s in re.split(r"[;&|]+|\$\(|`", command) if s.strip()]
+    return bool(segments) and all(READONLY_SEGMENT_RE.match(s) for s in segments)
+
+
+def destructive_match(command: str):
+    match = DESTRUCTIVE_RE.search(command)
+    if match:
+        return match
+    match = DESTRUCTIVE_CONTENT_RE.search(command)
+    if match and not readonly_search_pipeline(command):
+        return match
+    return None
 
 REASON = (
     "surfacing-gate: this command contains a destructive operation ({token}). "
@@ -88,7 +116,7 @@ def main() -> int:
         command = command_of(input_data)
         if not command:
             return 0
-        match = DESTRUCTIVE_RE.search(command)
+        match = destructive_match(command)
         if not match:
             return 0
         ledger = load_ledger(input_data)

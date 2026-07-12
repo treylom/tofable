@@ -64,7 +64,7 @@ SECRET_PATTERNS = [
     re.compile(r"xox[baprs]-[A-Za-z0-9-]{12,}"),
 ]
 
-CODE_EXTS = {".py", ".sh", ".js", ".mjs", ".ts", ".tsx", ".jsx", ".rb", ".go", ".rs", ".c", ".cc", ".cpp", ".java", ".swift", ".sql", ".css", ".scss"}
+CODE_EXTS = {".py", ".sh", ".js", ".mjs", ".ts", ".tsx", ".jsx", ".rb", ".go", ".rs", ".c", ".cc", ".cpp", ".java", ".swift", ".sql", ".css", ".scss", ".php", ".kt", ".kts", ".dart", ".cs", ".ex", ".exs", ".hs", ".scala", ".tf", ".proto", ".html"}
 CONFIG_EXTS = {".json", ".jsonc", ".toml", ".yaml", ".yml", ".ini", ".cfg", ".conf", ".plist", ".lock"}
 DOC_EXTS = {".md", ".mdx", ".rst", ".txt", ".adoc"}
 
@@ -149,11 +149,37 @@ DESTRUCTIVE_PATTERNS = [
     CMD_ANCHOR + r"find\b[^\n;|&]*\s-delete\b",
     CMD_ANCHOR + r"(?:rmdir|shred|mkfs\.[a-z0-9]+)\b",
     CMD_ANCHOR + r"truncate\s+-s\s*0\b",
-    r"\bshutil\.rmtree\s*\(",
-    r"\bDROP\s+(?:TABLE|DATABASE|SCHEMA)\b",
     CMD_ANCHOR + r"rsync\b[^\n]*--delete\b",
 ]
+# Content patterns live inside quoted program text (`python3 -c "...
+# shutil.rmtree(...)"`, SQL handed to a client), so they cannot be
+# command-anchored. A pure read-only search/filter pipeline that merely
+# MENTIONS them is exempted (2026-07-13 rereview C9a).
+DESTRUCTIVE_CONTENT_PATTERNS = [
+    r"\bshutil\.rmtree\s*\(",
+    r"\bDROP\s+(?:TABLE|DATABASE|SCHEMA)\b",
+]
 DESTRUCTIVE_RE = re.compile("|".join(DESTRUCTIVE_PATTERNS), re.IGNORECASE)
+DESTRUCTIVE_CONTENT_RE = re.compile("|".join(DESTRUCTIVE_CONTENT_PATTERNS), re.IGNORECASE)
+READONLY_SEGMENT_RE = re.compile(
+    r"^(?:grep|rg|ag|ack|egrep|fgrep|head|tail|wc|sort|uniq|cut|awk|sed|cat|echo|less|find|ls|git\s+(?:grep|log|show|diff))\b",
+    re.IGNORECASE,
+)
+
+
+def readonly_search_pipeline(command: str) -> bool:
+    segments = [s.strip() for s in re.split(r"[;&|]+|\$\(|`", command) if s.strip()]
+    return bool(segments) and all(READONLY_SEGMENT_RE.match(s) for s in segments)
+
+
+def destructive_match(command: str):
+    match = DESTRUCTIVE_RE.search(command)
+    if match:
+        return match
+    match = DESTRUCTIVE_CONTENT_RE.search(command)
+    if match and not readonly_search_pipeline(command):
+        return match
+    return None
 
 DEFERRAL_PATTERNS = [
     r"\b(?:i'?ll|we'?ll|will|let'?s)\s+(?:finish|continue|resume|complete|tackle|revisit|do)\b[^.\n]{0,60}\b(?:tomorrow|next\s+(?:session|time|turn)|later)\b",
@@ -257,10 +283,35 @@ def _release_ledger_lock(path: Path) -> None:
             pass
 
 
+LEDGER_TTL_DAYS = 30
+
+
+def _prune_stale_ledgers(directory: Path) -> None:
+    """First-touch housekeeping (2026-07-13 rereview C9c): one ledger file
+    accumulates per (session, cwd) and nothing ever removed them. Sweep
+    siblings whose mtime is past the TTL — a file that old cannot belong to
+    a live session. Fail-open on every path.
+    """
+    try:
+        import time
+
+        cutoff = time.time() - LEDGER_TTL_DAYS * 86400
+        for entry in directory.glob("*.json"):
+            try:
+                if entry.stat().st_mtime < cutoff:
+                    entry.unlink(missing_ok=True)
+                    Path(f"{entry}.lock").unlink(missing_ok=True)
+            except OSError:
+                continue
+    except Exception:
+        pass
+
+
 def load_ledger(input_data: dict[str, Any]) -> dict[str, Any]:
     path = ledger_path(input_data)
     _acquire_ledger_lock(path)
     if not path.exists():
+        _prune_stale_ledgers(path.parent)
         return default_ledger()
     try:
         data = json.loads(path.read_text(encoding="utf-8"))

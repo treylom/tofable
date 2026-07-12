@@ -6,7 +6,7 @@ real work, and pin it to the harness surface that can carry it** — a hook
 event, a rules-layer file, or the `/tofable` skill — on both Claude Code and
 Codex. The role inventory below is grounded in a full-corpus readout of real
 session logs (31,727 session transcripts deterministically swept; 317
-digest chunks deep-read by ~380 graders; 542 gate ledgers aggregated), not
+digest chunks deep-read across ~380 grader subagent passes; 542 gate ledgers aggregated), not
 in introspection.
 
 ## Placement principle (the forest)

@@ -21,6 +21,14 @@ Scope guards against false positives:
 - capped at one bounce per turn via stop_hook_active; fail-open on any
   parse error or missing transcript.
 
+Known limitation (2026-07-13 rereview): verdict satisfaction is
+session-scoped — this hook is stateless over the transcript, so a verdict
+recorded for an earlier deploy also satisfies a later declaration in the
+same session. Sessions carrying multiple distinct deploys should obtain a
+fresh verdict per deploy. (Narrowing this would bounce the common
+"reviewer PASS → owner says proceed → deploy → declare" flow, a worse
+trade.)
+
 Env:
   CUTOVER_GATE_OFF=1        disable entirely
   CUTOVER_KW_EXTRA=regex    extend the declaration pattern

@@ -86,8 +86,8 @@ SECRET_PATTERNS = [
     re.compile(r"xox[baprs]-[A-Za-z0-9-]{12,}"),
 ]
 
-CODE_EXTS = {".py", ".sh", ".js", ".mjs", ".ts", ".tsx", ".jsx", ".rb", ".go", ".rs", ".c", ".cc", ".cpp", ".java", ".swift", ".sql", ".css", ".scss"}
-CONFIG_EXTS = {".json", ".jsonc", ".toml", ".yaml", ".yml", ".ini", ".cfg", ".conf", ".plist"}
+CODE_EXTS = {".py", ".sh", ".js", ".mjs", ".ts", ".tsx", ".jsx", ".rb", ".go", ".rs", ".c", ".cc", ".cpp", ".java", ".swift", ".sql", ".css", ".scss", ".php", ".kt", ".kts", ".dart", ".cs", ".ex", ".exs", ".hs", ".scala", ".tf", ".proto", ".html"}
+CONFIG_EXTS = {".json", ".jsonc", ".toml", ".yaml", ".yml", ".ini", ".cfg", ".conf", ".plist", ".lock"}
 
 # Harness surface = changes here are gated regardless of extension (rules,
 # hooks, scripts, skills, commands, agents, and the settings files).
@@ -287,10 +287,35 @@ def _release_ledger_lock(path: Path) -> None:
             pass
 
 
+LEDGER_TTL_DAYS = 30
+
+
+def _prune_stale_ledgers(directory: Path) -> None:
+    """First-touch housekeeping (2026-07-13 rereview C9c): one ledger file
+    accumulates per (session, cwd) and nothing ever removed them. Sweep
+    siblings whose mtime is past the TTL — a file that old cannot belong to
+    a live session. Fail-open on every path.
+    """
+    try:
+        import time
+
+        cutoff = time.time() - LEDGER_TTL_DAYS * 86400
+        for entry in directory.glob("*.json"):
+            try:
+                if entry.stat().st_mtime < cutoff:
+                    entry.unlink(missing_ok=True)
+                    Path(f"{entry}.lock").unlink(missing_ok=True)
+            except OSError:
+                continue
+    except Exception:
+        pass
+
+
 def load_ledger(input_data: dict[str, Any]) -> dict[str, Any]:
     path = ledger_path(input_data)
     _acquire_ledger_lock(path)
     if not path.exists():
+        _prune_stale_ledgers(path.parent)
         return default_ledger()
     try:
         data = json.loads(path.read_text(encoding="utf-8"))

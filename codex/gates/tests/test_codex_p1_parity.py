@@ -19,7 +19,7 @@ GATES = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(GATES))
 import lib  # noqa: E402
 
-from test_support import EXAMPLE_CWD, blocked, run_hook  # noqa: E402
+from test_support import EXAMPLE_CWD, blocked, denied, run_hook  # noqa: E402
 
 WORKER = r"""
 import sys, time
@@ -118,6 +118,56 @@ class CodexTurnLedgerPersistenceTests(unittest.TestCase):
     def test_first_touch_still_seeds_a_ledger(self) -> None:
         run_hook(GATES / "user_prompt_submit.py", {**self.session}, self.env)
         self.assertEqual(len(list(Path(self.tmp.name).rglob("*.json"))), 1)
+
+
+class CodexSmallFixParityTests(unittest.TestCase):
+    """Codex parity for the rereview LOW batch (C9a/C9b/C9c)."""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory(prefix="tofable-codex-small-")
+        self.env = {"FABLE_STATE_DIR": self.tmp.name}
+        self._old_env = os.environ.get("FABLE_STATE_DIR")
+
+    def tearDown(self) -> None:
+        if self._old_env is None:
+            os.environ.pop("FABLE_STATE_DIR", None)
+        else:
+            os.environ["FABLE_STATE_DIR"] = self._old_env
+        self.tmp.cleanup()
+
+    def pre(self, command: str, session: str = "small-1"):
+        return run_hook(
+            GATES / "pre_tool_use.py",
+            {"session_id": session, "cwd": EXAMPLE_CWD, "tool_name": "Bash", "tool_input": {"command": command}},
+            self.env,
+        )
+
+    def test_search_mention_of_content_patterns_passes(self) -> None:
+        self.assertFalse(denied(self.pre('grep -rn "shutil.rmtree(" src/')))
+        self.assertFalse(denied(self.pre('rg "DROP TABLE" migrations/ | head -5', session="small-2")))
+
+    def test_inline_execution_still_denied(self) -> None:
+        self.assertTrue(denied(self.pre("python3 -c \"import shutil; shutil.rmtree('build')\"", session="small-3")))
+
+    def test_more_languages_classify_as_code(self) -> None:
+        for name in ("handler.php", "App.kt", "main.dart", "Service.cs", "network.tf", "schema.proto", "index.html"):
+            self.assertEqual(lib.classify_path_kind(f"/workspace/proj/src/{name}"), "code", name)
+
+    def test_stale_ledger_pruned_on_first_touch(self) -> None:
+        import time
+
+        os.environ["FABLE_STATE_DIR"] = self.tmp.name
+        stale = lib.save_ledger({"session_id": "stale-sess", "cwd": "/w"}, lib.default_ledger())
+        Path(f"{stale}.lock").touch()
+        old = time.time() - 40 * 86400
+        os.utime(stale, (old, old))
+        fresh = lib.save_ledger({"session_id": "fresh-sess", "cwd": "/w"}, lib.default_ledger())
+
+        lib.load_ledger({"session_id": "new-sess", "cwd": "/w"})
+
+        self.assertFalse(stale.exists())
+        self.assertFalse(Path(f"{stale}.lock").exists())
+        self.assertTrue(fresh.exists())
 
 
 if __name__ == "__main__":

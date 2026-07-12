@@ -10,12 +10,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 try:
     from lib import (
-        DESTRUCTIVE_RE,
         MAX_RETRY_BLOCKS,
         MAX_SURFACING_BLOCKS,
         command_from_input,
         command_hash,
         deny_payload,
+        destructive_match,
         emit_json,
         gate_enabled,
         load_ledger,
@@ -47,7 +47,7 @@ def main() -> int:
             return 0
         ledger = load_ledger(input_data)
 
-        match = DESTRUCTIVE_RE.search(command)
+        match = destructive_match(command)
         if match:
             surfaced = ledger.get("surfaced_ops")
             if not isinstance(surfaced, list):
