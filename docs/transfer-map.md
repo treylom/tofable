@@ -1,0 +1,93 @@
+# Transfer map — which part of the working style goes where
+
+Design doc, 2026-07-12. The question this answers, end to end ("from the
+trees to the forest"): **take each role the source model actually played in
+real work, and pin it to the harness surface that can carry it** — a hook
+event, a rules-layer file, or the `/tofable` skill — on both Claude Code and
+Codex. The role inventory below is grounded in a full-corpus readout of real
+session logs (31,727 session transcripts deterministically swept; 317
+digest chunks deep-read by ~380 graders; 542 gate ledgers aggregated), not
+in introspection.
+
+## Placement principle (the forest)
+
+A role goes to the **strongest surface that can actually carry it**:
+
+| If the role is… | it belongs in | why |
+|---|---|---|
+| checkable by machine against evidence (a command ran, a file changed, a count exists) | a **hook** (gate) | prose can be skimmed; a bounced Stop cannot. "A written rule is not enforcement." |
+| a judgment call that needs situation context (when to stop, whose call a decision is) | a **rules file** (situation-keyed, routed by an index) | judgment can't be mechanized without false positives; rules put the criteria in front of the model at the moment they apply |
+| a procedure — an ordering of steps the model should walk through | the **skill** (`/tofable`) | skills are invocable checklists; they make the evidence *exist* before the gate ever has to demand it |
+| a property of the model's weights (raw judgment under ambiguity) | **not portable** — measure it in `bench/` instead | the harness scaffolds behavior; it does not add reasoning capability |
+
+The skill and the gates are deliberately twinned: the skill is the proactive
+form (walk the discipline), the gates are the reactive form (bounce a stop
+that skipped it). Rules sit between: always-routable judgment criteria.
+
+## Surfaces available (the trees)
+
+Verified against a live install of each harness (2026-07-12):
+
+| Lifecycle point | Claude Code | Codex | Gate(s) riding it |
+|---|---|---|---|
+| session start | `SessionStart` | `SessionStart` | rules/index injection (Claude side is where always-loaded rules arrive) |
+| prompt submitted | `UserPromptSubmit` | `UserPromptSubmit` | fresh per-session ledger init (Codex port); situation-rule routing |
+| before a tool runs | `PreToolUse` (matcher, can deny) | `PreToolUse` (matcher, can deny) | surfacing-gate, blind-retry-gate, prompt-advance |
+| after a tool returns | `PostToolUse` (matcher) | `PostToolUse` (matcher) | verify-ledger (records only) |
+| agent wants to stop | `Stop` (can block) | `Stop` (can block) | stop-verify (3 checks), subordinate-evidence, continuation-gate |
+| subagent stops | `SubagentStop` | — | (unused so far; candidate for delegate-evidence capture) |
+| pre-compaction | `PreCompact` | — | state-of-truth flush (keeps discipline context across compaction) |
+| session end | `SessionEnd` | — | (unused) |
+
+Codex lacks the last three; the degradations are acceptable because nothing
+gate-critical rides them (see `adapters.md` for the general contract, which
+also covers runtimes with fewer interception points).
+
+## Role × surface matrix
+
+Roles are ordered by how often the readout saw them carry real work. ✅ =
+implemented in this repo today; ◻ = rules/skill guidance only (no mechanical
+check possible or wanted).
+
+| # | Role the source model played | Hook (mechanical) | Rules layer | `/tofable` skill step |
+|---|---|---|---|---|
+| 1 | verify before claiming done | ✅ `verify-ledger` + `stop-verify` (Stop) | `verification.md` (grade ladder, verify-the-verifier) | step 2 & 4 |
+| 2 | honest completion — gaps stay listed, numbers need mechanical checks | ✅ claim-evidence check (Stop) | `verification.md` | step 4 |
+| 3 | complete-HOW delegation; a delegate's "done" is a claim | ✅ subordinate-evidence check (Stop) | `delegation.md` | step 2 |
+| 4 | don't conclude absence from a shallow look | ✅ absence check (Stop) | (write your own — boundary expansion) | step 2 |
+| 5 | surface destructive actions before running them | ✅ `surfacing-gate` (PreToolUse) | — | step 2 |
+| 6 | diagnose before re-attacking a failure | ✅ `blind-retry-gate` (PreToolUse) | — | step 2 |
+| 7 | refine the task into a real prompt/spec before executing | ✅ `prompt-advance` (PreToolUse) | — | step 1 (+ `/prompt` integration with plain-prompting fallback) |
+| 8 | no silent deferral while work remains | ✅ `continuation-gate` (Stop) | `continuation.md` (waiting / hung / dead triage) | step 3 |
+| 9 | honest decomposition into verifiable units | ◻ (not mechanizable without false positives) | — | step 0 |
+| 10 | report blockers immediately, with whose-decision routing | ◻ | `continuation.md` | step 3 |
+| 11 | judgment under ambiguity (gating a risky step, honoring a constraint) | — not portable; measured in `bench/` (orchestration 96.3 vs 88.3, constrained-writing 93.3 vs 76.7) | | |
+
+Mined additions from the 2026-07-12 full-corpus readout land as new rows
+here (and as rules/gates) — see the changelog at the bottom.
+
+## Ledger v5.1 — a tuning example of the same principle
+
+The 542-ledger aggregation found the stop-verify ordering anchor bouncing
+~96% of change sessions, **all** of which already carried verification
+evidence — the dominant real pattern was "verify the code, then edit a
+rules .md last". Fix: only *executable* gated changes (code/config/settings,
+non-prose harness files) stale prior verifications; prose harness edits stay
+gated but keep already-earned evidence. That is the placement principle
+applied to the gate itself: the mechanical check must track what evidence
+can actually exist for a given change kind.
+
+## Codex parity rules
+
+- Every gate that lands in `hooks/` (Claude) must land in `codex/gates/`
+  (Codex) in the same change, or state why not — the two ports share ledger
+  schema and the parity test suite (`codex/gates/tests/`).
+- Codex skill form: the same skill directory ships in a plugin with a
+  `.codex-plugin/plugin.json` (`"skills": "./skills/"`); slash commands do
+  not exist on Codex, so anything shipped as a Claude `commands/*.md` needs
+  a skill-form wrapper to be invocable there.
+
+## Changelog
+
+- 2026-07-12 — initial map; ledger v5.1 tuning; `/tofable` skill (dual
+  platform) introduced; roles 1–10 verified against the full-corpus readout.

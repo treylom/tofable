@@ -85,6 +85,14 @@ don't overwrite existing hooks). Use the **absolute path** from step 1:
         ]
       }
     ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Write|Edit|Bash|Task|Agent|Read",
+        "hooks": [
+          { "type": "command", "command": "python3 $HOME/.claude/fable-hooks/verify-ledger.py" }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [
@@ -108,6 +116,14 @@ through a file rather than a Task/Agent return value; ordinary reads
 never arm it); `stop-verify-gate.py` goes on `Stop`, which
 takes no matcher — it always fires on every turn-end. All scripts find
 `fable_lib.py` next to themselves, so keep them together.
+
+The same recorder also goes on **`PostToolUseFailure`**: current Claude Code
+routes failing tool calls to that event only (verified empirically
+2026-07-12 — a failing Bash never reached `PostToolUse`). Without this
+wiring the ledger records no failures, and the blind-retry gate never arms
+on a genuinely failed command. On harnesses whose `PostToolUse` still fires
+for failures, the double wiring is harmless — the recorder is idempotent
+per event.
 
 > **If you already have `PostToolUse` or `Stop` hooks**, don't paste this
 > block over the existing key — that silently clobbers them. `PostToolUse`

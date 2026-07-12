@@ -165,6 +165,24 @@ class FableGateTests(unittest.TestCase):
         self.assertEqual(data["last_gated_exec_seq"], 1, "exec anchor = the .py change")
         self.assertEqual(data["last_gated_seq"], 2, "audit anchor = the latest gated change")
 
+    # ---------- PostToolUseFailure wiring (failures fire a separate event) ----------
+    def test_deep_failure_event_records_failure_and_arms_retry_anchor(self) -> None:
+        """Current Claude Code routes failing tool calls to PostToolUseFailure only
+        (measured 2026-07-12): the recorder must treat that event itself as the
+        failure signal, even when the payload carries no parseable exit code."""
+        r = run_hook(
+            LEDGER_HOOK,
+            {**self.session, "hook_event_name": "PostToolUseFailure", "tool_name": "Bash",
+             "tool_input": {"command": "make build"},
+             "tool_response": {"stderr": "boom: unrecoverable"}},
+            self.env,
+        )
+        self.assertEqual(r.returncode, 0, r.stderr)
+        data = json.loads(self.ledger_files()[0].read_text())
+        self.assertTrue(data["failures"], "failure-event payload must land in failures[]")
+        self.assertTrue(data["last_bash_failed"], "blind-retry anchor must arm on a failure event")
+        self.assertTrue(data["last_bash_cmd_hash"], "retry-chain anchor must carry the command hash")
+
     # ---------- tier 3: boundary ----------
     def test_boundary_stop_hook_active_passes(self) -> None:
         self.record_change(f"{EXAMPLE_CWD}/.claude/hooks/y.py")

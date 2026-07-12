@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
-"""PostToolUse(Write|Edit|Bash) — fable verification-evidence ledger recorder.
+"""PostToolUse + PostToolUseFailure — fable verification-evidence ledger recorder.
 
 fail-open: any exception exits 0 with no output (never blocks the work).
 This hook only records; the Stop hook (stop-verify-gate.py) does the judging.
+
+Wire it on BOTH PostToolUse and PostToolUseFailure: current Claude Code
+routes failing tool calls to PostToolUseFailure only (verified empirically
+2026-07-12 on 2.1.207 — a `bash -c 'exit 3'` never reached PostToolUse), so
+a PostToolUse-only wiring is blind to failures: `failures[]` stays empty and
+the blind-retry gate never arms on genuinely failed commands.
 
 Origin: fable-ish-codex hooks/post_tool_use.py, adapted for Claude Code hooks.
 """
@@ -27,6 +33,8 @@ try:
         is_prose_path,
         load_ledger,
         read_stdin_json,
+        redact,
+        response_text,
         save_ledger,
         verification_record,
     )
@@ -45,6 +53,17 @@ def main() -> int:
         paths = changed_paths(input_data)
         verification = verification_record(input_data)
         failure = detect_failure(input_data)
+        if not failure and str(input_data.get("hook_event_name") or "") == "PostToolUseFailure":
+            # Failure-event payloads don't always carry a parseable exit code —
+            # the event itself is the failure signal (see module docstring).
+            failure = {
+                "kind": "tool-failure-event",
+                "summary": redact(
+                    response_text(input_data.get("tool_response", input_data), 240)
+                    or command_from_input(input_data),
+                    240,
+                ),
+            }
         git_use = git_usage_record(input_data)  # ledger v2 — absence-gate evidence
         bash_command = command_from_input(input_data) if tool_name == "Bash" else ""
         subagent = tool_name in SUBAGENT_TOOLS  # ledger v4 — subordinate-evidence anchor
