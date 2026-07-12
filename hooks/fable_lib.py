@@ -147,12 +147,18 @@ ABSENCE_CLAIM_RE = re.compile(
 # Kept deliberately narrow: bare small numbers in prose ("3단계로 진행")
 # don't match — the count shape requires a measured-artifact noun, and the
 # 총/exactly/정확히 qualifiers or N>=3 anchor the "this was counted" reading.
-_COUNT_NOUN = r"(?:lines?|rows?|files?|entries|messages?|records?|matches|occurrences?|commits?|tests?|items?|줄|행|파일|건|개(?:의)?\s*(?:파일|메시지|줄|행|기록|항목|테스트|커밋)?)"
+# The Korean generic counter 개 alone is everyday phrasing ("카드 3개"), not a
+# measurement claim (2026-07-13 rereview C1): it needs a specific noun
+# attached ("3개의 파일") — except under an explicit total/exact qualifier,
+# which anchors the counted reading by itself ("총 83개").
+_COUNT_NOUN_CORE = r"lines?|rows?|files?|entries|messages?|records?|matches|occurrences?|commits?|tests?|items?|줄|행|파일|건"
+_COUNT_NOUN = rf"(?:{_COUNT_NOUN_CORE}|개(?:의)?\s*(?:파일|메시지|줄|행|기록|항목|테스트|커밋))"
+_COUNT_NOUN_QUALIFIED = rf"(?:{_COUNT_NOUN_CORE}|개(?:의)?\s*(?:파일|메시지|줄|행|기록|항목|테스트|커밋)?)"
 _NUM_GE3 = r"(?:[3-9]|[1-9][0-9][0-9,]*|[1-9][0-9])"  # 3+ (1–2 in prose is usually self-knowledge, not a measurement)
 _ADJ1 = r"(?:[A-Za-z가-힣-]+\s+)?"  # one optional adjective — "84 body messages", "87 timestamped lines"
 COUNT_CLAIM_RE = re.compile(
     r"(?i)(?:"
-    rf"(?:총|전체|모두\s*합쳐|정확히|exactly|in\s+total|a\s+total\s+of)\s*[0-9][0-9,]*\s*{_ADJ1}{_COUNT_NOUN}"
+    rf"(?:총|전체|모두\s*합쳐|정확히|exactly|in\s+total|a\s+total\s+of)\s*[0-9][0-9,]*\s*{_ADJ1}{_COUNT_NOUN_QUALIFIED}"
     rf"|\b{_NUM_GE3}\s+{_ADJ1}{_COUNT_NOUN}"
     rf"|\b{_NUM_GE3}\s*(?=[가-힣]){_COUNT_NOUN}"
     r")"
@@ -240,8 +246,50 @@ def default_ledger() -> dict[str, Any]:
     return copy.deepcopy(DEFAULT_LEDGER)
 
 
+_LEDGER_LOCKS: dict[str, Any] = {}
+
+
+def _acquire_ledger_lock(path: Path) -> None:
+    """Exclusive advisory lock for the load→mutate→save cycle (2026-07-13 C2).
+
+    Without it, two concurrent hook processes on the same ledger both load the
+    same snapshot and the later save silently clobbers the earlier append.
+    Held from load_ledger until save_ledger (or process exit — hooks are
+    short-lived, and the OS releases the flock when the holder dies, so a
+    blocking wait is bounded by holder lifetime + the harness's own hook
+    timeout). Fail-open: a platform without flock proceeds unlocked rather
+    than wedge a hook.
+    """
+    key = str(path)
+    if key in _LEDGER_LOCKS:
+        return
+    try:
+        import fcntl
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        handle = open(f"{path}.lock", "a", encoding="utf-8")
+        try:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        except OSError:
+            handle.close()
+            return
+        _LEDGER_LOCKS[key] = handle
+    except Exception:
+        return
+
+
+def _release_ledger_lock(path: Path) -> None:
+    handle = _LEDGER_LOCKS.pop(str(path), None)
+    if handle is not None:
+        try:
+            handle.close()  # closing the descriptor releases the flock
+        except OSError:
+            pass
+
+
 def load_ledger(input_data: dict[str, Any]) -> dict[str, Any]:
     path = ledger_path(input_data)
+    _acquire_ledger_lock(path)
     if not path.exists():
         return default_ledger()
     try:
@@ -290,6 +338,7 @@ def save_ledger(input_data: dict[str, Any], ledger: dict[str, Any]) -> Path:
                 tmp.unlink()
         except OSError:
             pass
+        _release_ledger_lock(path)
     return path
 
 
@@ -462,16 +511,28 @@ def git_usage_record(input_data: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
+TRANSCRIPT_TAIL_BYTES = 400_000  # same cap as prompt-advance-gate's transcript_tail()
+
+
 def last_assistant_text(transcript_path: str) -> str:
     """Last assistant message's text from a Claude Code transcript (jsonl).
 
     Shared by continuation-gate (deferral language) and stop-verify-gate
-    (absence claims) — both judge the turn's final message.
+    (absence claims) — both judge the turn's final message. Reads only the
+    last TRANSCRIPT_TAIL_BYTES (2026-07-13 C3): at Stop time that message
+    sits at the transcript's tail, and long sessions grow transcripts to
+    tens of MB — an unbounded read on every Stop is pure cost.
     """
     try:
-        lines = Path(transcript_path).read_text(encoding="utf-8", errors="replace").splitlines()
+        path = Path(transcript_path)
+        size = path.stat().st_size
+        with open(path, "rb") as handle:
+            if size > TRANSCRIPT_TAIL_BYTES:
+                handle.seek(size - TRANSCRIPT_TAIL_BYTES)
+            raw = handle.read()
     except OSError:
         return ""
+    lines = raw.decode("utf-8", errors="replace").splitlines()
     for line in reversed(lines):
         try:
             entry = json.loads(line)

@@ -47,6 +47,13 @@ class CodexClaimEvidenceGateTests(unittest.TestCase):
         self.verify("shasum artifact-a artifact-b")
         self.assertFalse(blocked(self.stop("완전히 동일함이 확인됐습니다.")))
 
+    def test_boundary_bare_korean_generic_counter_passes(self) -> None:
+        # Regression (2026-07-13 rereview C1): "카드 3개" is everyday phrasing,
+        # not a measured-count claim — bare 개 without a specific noun must pass.
+        self.assertFalse(blocked(self.stop("카드 3개 만들었습니다. 배포 준비 끝.")))
+        self.session = {"session_id": "claim-gae-noun", "cwd": EXAMPLE_CWD}
+        self.assertTrue(blocked(self.stop("3개의 파일을 수정했습니다.")))
+
     def test_boundary_small_numbers_steps_and_absence_priority(self) -> None:
         self.assertFalse(blocked(self.stop("I used 2 steps.")))
         self.assertFalse(blocked(self.stop("Step 3 is complete.")))

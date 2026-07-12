@@ -210,5 +210,41 @@ class ClaimEvidenceGateTests(unittest.TestCase):
         self.assertFalse(blocked(r), r.stdout)
 
 
+class KoreanGenericCounterTests(unittest.TestCase):
+    """Regression (2026-07-13 rereview C1): the bare Korean generic counter
+    "N개" is everyday phrasing ("카드 3개"), not a measured-count claim — it
+    must not trip the claim gate unless a specific noun is attached, or an
+    explicit total/exact qualifier (총/정확히) anchors the counted reading.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        sys.path.insert(0, str(HOOKS))
+        import fable_lib
+
+        cls.count_re = fable_lib.COUNT_CLAIM_RE
+
+    def test_bare_gae_is_not_a_count_claim(self) -> None:
+        for text in (
+            "카드 3개 만들었습니다.",
+            "예제 4개 추가했고 배포는 내일입니다.",
+            "이미지 5개 생성 완료.",
+        ):
+            self.assertIsNone(self.count_re.search(text), text)
+
+    def test_gae_with_specific_noun_still_matches(self) -> None:
+        for text in (
+            "3개의 파일을 수정했습니다.",
+            "12개 메시지를 집계했습니다.",
+        ):
+            self.assertIsNotNone(self.count_re.search(text), text)
+
+    def test_qualified_total_bare_gae_still_matches(self) -> None:
+        self.assertIsNotNone(self.count_re.search("총 83개를 확인했습니다."))
+
+    def test_existing_kr_count_shape_unchanged(self) -> None:
+        self.assertIsNotNone(self.count_re.search(COUNT_TEXT_KR))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
