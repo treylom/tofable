@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "_comment": "Per-agent gate profiles (D2a, 2026-07-13 weight audit). Pick a profile at install time and wire only its groups into <agent-wd>/.claude/settings.json. Gate FILES stay in this repo (single source of truth) — profiles select WIRINGS, never copy gate code or rules text. NOTE: Claude Code project settings are cwd-scoped and do NOT merge parent directories — the agent must LAUNCH with cwd == the directory holding .claude/settings.json.",
+  "wiring_groups": {
+    "safety-core": {
+      "description": "Content-triggered verification gates (classification B) — self-scoping, silent-pass cost is tens of ms; measured 70-100% true-positive on live blocks. Recommended for every interactive agent.",
+      "wirings": {
+        "Stop": ["hooks/stop-verify-gate.py", "hooks/continuation-gate.py"],
+        "PreToolUse:Bash": ["hooks/surfacing-gate.py", "hooks/blind-retry-gate.py"],
+        "PostToolUse:Write|Edit|MultiEdit|NotebookEdit|Bash|Task|Agent|Read": ["hooks/verify-ledger.py"],
+        "PostToolUseFailure:Write|Edit|MultiEdit|NotebookEdit|Bash|Task|Agent|Read": ["hooks/verify-ledger.py"],
+        "SubagentStop": ["hooks/verify-ledger.py"]
+      }
+    },
+    "workflow": {
+      "description": "Owner-contract workflow gates. prompt-advance bounces execution-grade starts once when a crystallized task skipped the prompt-engineering pass (narrowed 2026-07-13: meeting-driven sessions exempt, small edits exempt).",
+      "wirings": {
+        "PreToolUse:Write|Edit|MultiEdit|NotebookEdit|Task|Agent": ["hooks/prompt-advance-gate.py"]
+      }
+    },
+    "opt-in": {
+      "description": "Explicit opt-in gates (cutover-review, requirements-lock, branch-stray-guard) — wire only when the owner opts in.",
+      "wirings": {}
+    }
+  },
+  "profiles": {
+    "orchestrator": {
+      "groups": ["safety-core"],
+      "notes": "Dispatch verification and delegate-report discipline matter most here (subordinate-evidence measured 4/4 true-positive). Workflow gate usually redundant: orchestrated tasks arrive already spec'd."
+    },
+    "generalist": {
+      "groups": ["safety-core", "workflow"],
+      "notes": "Do-everything agents benefit from the full set — our audit found the generalist bot had ZERO gates wired, which was the gap, not the weight."
+    },
+    "research": {
+      "groups": ["safety-core"],
+      "notes": "claim-evidence and absence gates align directly with research discipline (unverified counts, absence claims)."
+    },
+    "writing": {
+      "groups": ["safety-core", "workflow"],
+      "pilot": "claim-evidence: run 1 week in observation mode — manuscript numbers may read as count claims (unverified hypothesis; bounded by MAX_CLAIM_BLOCKS=1/session).",
+      "notes": "Persona/format gates for writing are platform hooks (classification A), not tofable gates."
+    },
+    "schedule-automation": {
+      "groups": ["safety-core"],
+      "requires": ["automation-carveout-first"],
+      "notes": "Wire ONLY after ticker/cron sessions carry FABLE_GATE_OFF=1 in their launch env — otherwise stop-gates bounce headless beats. Order matters."
+    },
+    "pipeline": {
+      "groups": ["safety-core"],
+      "requires": ["automation-carveout-first"],
+      "notes": "blind-retry and subordinate-evidence pay off most (retry loops, multi-stage delegation)."
+    },
+    "visual": {
+      "groups": ["safety-core", "workflow"],
+      "notes": "Image-safety guards (text-overlay blocking etc.) are platform content-hooks — keep them global on the platform side, not per-bot."
+    },
+    "codex": {
+      "groups": [],
+      "notes": "Use codex/gates/ (shared ledger schema) — same safety core, platform adapters differ (reply id-dedupe, turn-boundary diff). Do not fork rule text per platform."
+    }
+  },
+  "constraints": [
+    "Never copy gate code or rules text per agent — profiles select wirings; the repo stays the single source of truth (drift risk is the #1 failure mode of per-agent differentiation).",
+    "automation-carveout-first: headless/cron launch env needs FABLE_GATE_OFF=1 (tofable gates). If your platform hooks have their own automation flag, set both — env names are layer-specific and unimplemented names fail silently (measured).",
+    "Launch cwd must equal the settings directory (cwd-scoped, no parent merge — measured with a controlled probe).",
+    "Pilot per agent for a week (FABLE_GATE_PILOT), re-run the audit scanner on that agent's transcripts, then go fleet-wide."
+  ]
+}

@@ -121,9 +121,36 @@ Pilot before fleet-wide: enable per bot behind a pilot flag
 transcripts, then decide. False-positive rates measured on one bot do not
 transfer automatically — work distributions differ.
 
+## Speed: what a gate actually costs (measured)
+
+The audit began as a "the harness feels heavy/slow" question, so record the
+speed numbers explicitly — ours flipped the intuition:
+
+- **Per-hook latency is noise.** Every gate measured 16–30ms per invocation
+  (piped dummy payloads). A full 8-hook PreToolUse chain: ~0.2s per Bash
+  call; a 14-hook Stop chain against an 18MB transcript: ~0.4s. Nobody can
+  feel this.
+- **Prompt-injection cost is small and bounded.** The always-on self-check
+  injected ~0.7KB/turn; conditional injectors 0–0.4KB on match only. The
+  session front-load (instruction chain, tool schemas) dwarfed all gate
+  injections combined — measure it separately before blaming gates.
+- **The real cost is a bounced turn.** Every block makes the model spend an
+  extra turn (typically 1–3 tool calls plus a response — thousands of
+  tokens, tens of seconds). 94 blocks in 7 days ≈ 94 extra turns.
+
+**Therefore the speed KPI of a gate system is its false-positive rate**, not
+its latency. A true-positive bounce buys a caught defect for one turn —
+worth it. A false-positive bounce is pure slowdown. Our repairs that
+actually made the fleet faster were all FP repairs (current-turn scoping,
+re-bounce dedup, recomposition pass, context narrowing) — not gate removal:
+removing a 70–100% true-positive gate trades seconds for defects. Track
+`blocks × (1 - TP ratio)` per gate per week; drive it toward zero with
+repairs, and only toward removal when measured value is ~0.
+
 ## Outputs
 
 A finished audit produces: the layer inventory, the labeled event set, the
-ranking table with dispositions, red-first repair commits, and the per-bot
-gate matrix. Ours took one focused day for a 9-bot fleet; the scanner and
-the discriminators above were the whole trick.
+ranking table with dispositions, red-first repair commits, the per-bot gate
+matrix (see `profiles/gate-profiles.json` for the reusable profile schema),
+and the speed record above. Ours took one focused day for a 9-bot fleet;
+the scanner and the discriminators above were the whole trick.
