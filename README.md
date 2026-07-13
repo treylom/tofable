@@ -10,6 +10,8 @@
 
 This repo is the public, generalized distribution of that harness. Internal names, paths, and identifiers from the environment it was developed in have been stripped; the logic and the measurement methodology have not.
 
+![A strong model's working discipline transferring through a gate harness to another model](./assets/hero-discipline-transfer.png)
+
 ## Start here
 
 | You are… | Do this |
@@ -57,6 +59,8 @@ The honest, evidence-backed read: **`fable-5`'s edge is judgment under ambiguity
 
 ## The gates — and what they measurably change
 
+![The gate set inspecting work before it passes](./assets/hero-gates.png)
+
 The single most reproduced finding across our measurement cycles: **a written rule is not enforcement.** Models (especially cheaper ones) skim past prose rules, but they cannot skim past a hook that bounces their Stop. So the harness's active ingredient is the gate set:
 
 | Gate | Fires | Catches |
@@ -71,6 +75,8 @@ The single most reproduced finding across our measurement cycles: **a written ru
 | `blind-retry-gate` | before Bash | re-running the byte-identical command that just failed, with no diagnosis step in between |
 
 Every gate bounces **once**, always has a path through (show the evidence, or state explicitly why it's impossible), and fails open — a broken gate never wedges a session. Nothing is hard-forbidden by design: gates demand evidence, they don't ban actions. Kill switch: `FABLE_GATE_OFF=1`.
+
+**Ledger v5.2 (measured friction repairs).** After a week of running the gates live across a multi-agent fleet, we labeled every real block (94 of them) as true-positive, false-positive, or friction — and repaired the friction patterns instead of weakening the gates: stop-verify now names only paths changed since the last successful verification and never re-bounces the same unverified set twice; surfacing-gate's one-shot pass survives a benign re-wording of the same command when the destructive token *and* the target overlap (a different target still surfaces on its own); and the workflow-reminder gate was narrowed to substantial solo starts after measuring a near-zero value ratio in meeting-driven sessions. Each repair began as a failing test reproducing the measured friction (`hooks/tests/test_weight_audit_repairs.py`).
 
 The two newest checks (subordinate-evidence, blind-retry) were mined from the source model's actual work logs cross-referenced against a 68-incident failure corpus — they cover the two worst-recurrence axes (trusting a delegate's unverified "done"; re-attacking an error with the identical command). Their unit contracts are tested; their bench effect is the next measurement cycle, so the table below does not include them yet.
 
@@ -87,6 +93,19 @@ Fixture-level, the gains sit exactly where a gate was added: the absence-claim t
 
 Two honest footnotes from the same pass. A *compact* variant of the rule files (same content, ~40% shorter) scored the same average with **more** defects — brevity is not enforcement either; the gates are what move behavior. And one judge false-positive taught us to attach fixture **input materials** to the judge, not just the answer key — a graded model was flagged for "fabricating" strings that were verbatim in its source file. The improvement loop this repo runs is exactly: defect readout → new gate → re-bench. Two cycles so far have reproduced the same exchange rate — **one gate ≈ one defect axis removed** — with the usual small-n caveat (2–3 seeds per cell, ±10-point per-fixture noise; read arm averages, not single cells).
 
+## Weigh your gates: the audit loop
+
+The obvious worry about a gate harness is weight: *isn't all this checking making the agent slower and noisier?* We stopped speculating and measured it — a full week of live transcripts across a 9-agent fleet, every real gate event extracted and labeled by reading what the agent did next. The answer flipped the intuition twice:
+
+- **Per-gate cost is noise** (16–30ms per hook; the real cost is a bounced turn), so **the speed KPI of a gate system is its false-positive rate** — and the verification gates measured roughly 70–100% true-positive. The fixes that made the fleet faster were false-positive repairs (ledger v5.2 above), not gate removals.
+- **"Which gates should this agent run?" is a classification question, not a preference.** Content-triggered gates (destructive commands, unverified counts, completion claims) are self-scoping and belong everywhere; only genuinely bot-exclusive gates deserve per-agent guards; and headless/cron sessions need an explicit automation carve-out — with the exact env var each hook layer actually reads (we found a documented one that no layer implemented).
+
+The whole procedure is packaged to rerun on your own fleet:
+
+- **[`docs/gate-audit-playbook.md`](docs/gate-audit-playbook.md)** — the five steps (inventory → measure → label → rank → per-agent set), each with the trap we actually fell into before finding the working method (name-grep contamination, silent-pass invisibility, log-vs-transcript double counting, cwd-scoped settings that quietly apply your "shared" hooks to exactly one agent).
+- **[`scripts/audit/scan_gate_events.py`](scripts/audit/scan_gate_events.py)** — the real-event scanner (Stop-feedback / error-deny discriminators, not gate-name grep).
+- **[`profiles/gate-profiles.json`](profiles/gate-profiles.json)** — per-agent profiles (orchestrator / generalist / research / writing / automation / visual / codex): pick one at install time and wire only its groups. Profiles select *wirings*; gate code and rule text stay single-source — forking them per agent is the #1 drift failure mode.
+
 ## Repo structure
 
 ```
@@ -96,6 +115,7 @@ tofable/
 ├── NOTICE                — Apache-2.0 attribution for the ported hook design
 ├── docs/
 │   ├── method.md          — the transfer method: rule patterns, verification ledger/stop-gate, benchmark loop, mining loop
+│   ├── gate-audit-playbook.md — the audit loop: decide which gates each agent actually needs, with measurements
 │   └── infographic-en.png / infographic-ko.png  — summary graphics (en / ko; source: infographic-src.html — edit text + re-render to refresh)
 ├── rules/                 — copyable example rule layer (situation index + trigger-keyed rule files)
 ├── hooks/                 — harness-agnostic, generalized verification hooks (evidence ledger + stop-gate)
@@ -103,6 +123,11 @@ tofable/
 │   └── tests/
 │       ├── replay/            — violation corpus: past gate-worthy violations replayed as fixtures (block rate + corpus floor)
 │       └── probes/            — practice probes: the gate pipeline's own contracts, checked deterministically
+├── profiles/
+│   └── gate-profiles.json — per-agent gate profiles: pick a domain profile, wire only its groups
+├── scripts/audit/
+│   └── scan_gate_events.py — real-gate-event scanner for the audit loop (docs/gate-audit-playbook.md)
+├── assets/                — README illustrations
 ├── bench/                 — the harness-dependent vs. general-reasoning task set, scoring, and raw results
 │   └── substrate-check.sh     — one-line substrate snapshot for model-transition rehearsals (before/after delta must be 0)
 └── codex/
