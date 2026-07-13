@@ -106,7 +106,7 @@ The whole procedure is packaged to rerun on your own fleet:
 
 - **[`docs/gate-audit-playbook.md`](docs/gate-audit-playbook.md)** — the five steps (inventory → measure → label → rank → per-agent set), each with the trap we actually fell into before finding the working method (name-grep contamination, silent-pass invisibility, log-vs-transcript double counting, cwd-scoped settings that quietly apply your "shared" hooks to exactly one agent).
 - **[`scripts/audit/scan_gate_events.py`](scripts/audit/scan_gate_events.py)** — the real-event scanner (Stop-feedback / error-deny discriminators, not gate-name grep).
-- **[`profiles/gate-profiles.json`](profiles/gate-profiles.json)** — per-agent profiles (orchestrator / generalist / research / writing / automation / visual / codex): pick one at install time and wire only its groups. Profiles select *wirings*; gate code and rule text stay single-source — forking them per agent is the #1 drift failure mode.
+- **[`profiles/gate-profiles.json`](profiles/gate-profiles.json)** — per-agent profiles (orchestrator / generalist / research / writing / schedule-automation / pipeline / visual / codex): pick one at install time and wire only its groups. Profiles select *wirings*; gate code and rule text stay single-source — forking them per agent is the #1 drift failure mode.
 
 ## Repo structure
 

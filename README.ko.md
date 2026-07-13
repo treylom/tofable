@@ -106,7 +106,7 @@ fixture 단위로 보면 상승은 정확히 게이트를 단 곳에 있다: 부
 
 - **[`docs/gate-audit-playbook.md`](docs/gate-audit-playbook.md)** — 다섯 단계(inventory → measure → label → rank → per-agent set), 각 단계마다 우리가 실제로 빠졌던 함정 포함(게이트 이름 grep 오염, silent-pass 비가시성, 로그-vs-transcript 이중 집계, "공유" 훅을 정확히 한 에이전트에만 적용시키는 cwd 스코프 settings).
 - **[`scripts/audit/scan_gate_events.py`](scripts/audit/scan_gate_events.py)** — 실이벤트 스캐너(Stop-feedback / error-deny 판별자 기반 — 게이트 이름 grep이 아니라).
-- **[`profiles/gate-profiles.json`](profiles/gate-profiles.json)** — 에이전트별 게이트 프로파일(orchestrator / generalist / research / writing / automation / visual / codex): 설치 시 하나 골라 그 그룹만 배선한다. 프로파일이 고르는 건 *배선*이고, 게이트 코드와 규칙 텍스트는 단일 소스로 유지한다 — 에이전트별 포크가 drift 실패 모드 1순위다.
+- **[`profiles/gate-profiles.json`](profiles/gate-profiles.json)** — 에이전트별 게이트 프로파일(orchestrator / generalist / research / writing / schedule-automation / pipeline / visual / codex): 설치 시 하나 골라 그 그룹만 배선한다. 프로파일이 고르는 건 *배선*이고, 게이트 코드와 규칙 텍스트는 단일 소스로 유지한다 — 에이전트별 포크가 drift 실패 모드 1순위다.
 
 ## 레포 구조
 
