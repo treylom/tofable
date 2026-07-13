@@ -16,8 +16,10 @@ not a wall (MAX 1 bounce per session).
 
 Natural exemptions:
 - sessions with no interview/plan markers (trivial work) never trigger;
-- automation/headless sessions are skipped (same convention as the other
-  gates: CLAUDE_AUTOMATION / FABLE_GATE_OFF / FABLE_GATE_PILOT);
+- automation/headless sessions are skipped via the same kill switch as the
+  other gates (FABLE_GATE_OFF / FABLE_GATE_PILOT — note: no gate reads
+  CLAUDE_AUTOMATION; an earlier draft of this docstring mentioned it and the
+  2026-07-13 weight-audit D1 review caught the drift);
 - fail-open on any exception.
 
 Narrowed conditions (owner decision 2026-07-13, weight-audit ② — the 7-day
