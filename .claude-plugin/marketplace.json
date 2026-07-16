@@ -1,0 +1,17 @@
+{
+  "name": "tofable-kit",
+  "description": "tofable 작업 규율 스킬 마켓플레이스",
+  "owner": {
+    "name": "tofukyung",
+    "url": "https://github.com/treylom"
+  },
+  "plugins": [
+    {
+      "name": "tofable-kit",
+      "description": "The tofable working discipline as an invocable skill (/tofable): honest decomposition, prompt refinement with /prompt integration and a plai",
+      "source": ".",
+      "category": "productivity",
+      "version": "0.1.0"
+    }
+  ]
+}
