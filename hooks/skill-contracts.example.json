@@ -1,0 +1,19 @@
+{
+  "_comment": "Copy this file to <project-root>/skill-contracts.json to enable skill-step-gate.py / skill-step-inject.py. No file at the project root = both hooks are a silent no-op (opt-in, zero cost). One entry here = one registered skill; anything not listed is never checked.",
+  "schema_version": 1,
+  "mode": "observe",
+  "contracts": {
+    "prompt-generator": {
+      "surfaces": {
+        "code_block": "```",
+        "role_pattern": "<role>\\s*You are .{2,80}?[.\\n]",
+        "artifact_glob": [
+          "**/prompts/**/*.md",
+          "**/*-prompt-*.md"
+        ]
+      },
+      "interactive_escape": "which option would you like",
+      "checklist": "[skill-step contract: prompt-generator] This skill's output contract has three parts — (1) a generated prompt inside a code block, (2) a named expert role declared as \"<role>You are ...</role>\", (3) the full prompt saved to a project source-of-truth file. Executing without all three is a Stop-gate violation (skill-step-gate.py)."
+    }
+  }
+}

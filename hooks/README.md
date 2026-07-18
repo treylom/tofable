@@ -41,6 +41,8 @@ way through, that's a bug in the gate — file it.
 | `cutover-review-gate.py` *(opt-in)* | if the final message declares a cutover/deploy/go-live complete but no reviewer verdict (PASS/GREEN in a review context) exists anywhere in the transcript, bounces once — solo deploys are a recurring friction class. | `Stop` |
 | `requirements-lock.py` *(opt-in)* | completion-bias guard: lock code signatures in a project-root `requirements.lock`; if a locked signature disappears from the tree ("fixed" the error by deleting the feature), the stop bounces with the missing list. No lock file = no-op. | `Stop` |
 | `branch-stray-guard.sh` *(opt-in)* | warns when an unattended auto-commit lands knowledge/note files on a non-default branch, where they vanish from the default branch's history. | `Stop` |
+| `skill-step-gate.py` *(opt-in)* | catches "skill invoked, steps skipped": a skill can inject its whole spec into context and still get run without producing the output it requires. Register a skill's checkable output shape (a code block, a named role, a saved artifact) in a project-root `skill-contracts.json`; if the registered skill was invoked and the last-invoke window is missing a registered surface, the stop bounces once naming exactly what's missing. No registry file = no-op. See [`../rules/skill-contracts.md`](../rules/skill-contracts.md). | `Stop` |
+| `skill-step-inject.py` *(opt-in, pairs with `skill-step-gate.py`)* | the moment a registered skill is invoked, surfaces that skill's checklist into context immediately — prevention before the Stop-gate ever needs to catch anything. Reads the same `skill-contracts.json`; no registry or no matching entry = silent no-op. | `PostToolUse` (matcher: `Skill`) |
 
 ## Install (Claude Code)
 
@@ -65,9 +67,10 @@ cp tofable/hooks/fable_lib.py tofable/hooks/verify-ledger.py \
      tofable/hooks/prompt-advance-gate.py ~/.claude/fable-hooks/
 ```
 
-(The three opt-in gates — `cutover-review-gate.py`, `requirements-lock.py`,
-`branch-stray-guard.sh` — install the same way when you want them; see their
-rows above and their file headers.)
+(The opt-in gates — `cutover-review-gate.py`, `requirements-lock.py`,
+`branch-stray-guard.sh`, `skill-step-gate.py`, `skill-step-inject.py` —
+install the same way when you want them; see their rows above and their
+file headers.)
 
 **2. Wire them into `~/.claude/settings.json`.**
 
@@ -169,6 +172,35 @@ This drives the hooks as real subprocesses and asserts the gate blocks when
 it should and passes when it should. A green run is the runnable proof the
 gate is live — which is the whole point (a rule you can't see fire isn't
 enforcement).
+
+## Opt-in: skill output contracts
+
+`skill-step-gate.py` and `skill-step-inject.py` are the one pair in this
+directory with **no default matcher wiring above** — `PostToolUse` matched
+on `Skill` is a new matcher group, not an append to the `Write|Edit|...`
+group `verify-ledger.py` already uses. Wire both:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      { "matcher": "Skill", "hooks": [
+        { "type": "command", "command": "python3 $HOME/.claude/fable-hooks/skill-step-inject.py" } ] }
+    ],
+    "Stop": [
+      { "hooks": [
+        { "type": "command", "command": "python3 $HOME/.claude/fable-hooks/skill-step-gate.py" } ] }
+    ]
+  }
+}
+```
+
+(Append the `Stop` command into the `Stop` array you already have — same
+append-not-overwrite rule as above.) Then copy
+[`skill-contracts.example.json`](skill-contracts.example.json) to
+`skill-contracts.json` at the project root and edit it to name your own
+skills; no file there at all means both hooks stay a silent no-op.
+Confirm the wiring with `python3 tofable/hooks/tests/test_skill_step_gate.py`.
 
 ## Turning it off / scoping it
 

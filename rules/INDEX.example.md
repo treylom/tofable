@@ -9,6 +9,7 @@
 | stop, defer, or wrap up with goals remaining | [continuation.md](continuation.md) | real blocker? whose call? reported? — triage waiting/hung/dead |
 | deploy a watcher / write a value another automation reads | [automation.md](automation.md) | self-test on real data variants; exclude yourself; check the consumer's schema, not your memory |
 | act on a compressed option label, conflicting directives, or a literal path | [instruction-fidelity.md](instruction-fidelity.md) | restate your reading before spending; literal paths used literally |
+| invoke a skill with a written, machine-checkable output spec (or add one) | [skill-contracts.md](skill-contracts.md) | a written spec isn't enforcement; register an output contract, don't just prose it harder |
 | edit code or config | *(write your own — e.g. blast-radius check before, 3-step verify after)* | |
 | write to shared storage / publish externally | *(write your own — e.g. independent review gate before anything public)* | |
 | assert something "doesn't exist / is broken" | *(write your own — e.g. widen the search before concluding absence)* | |
